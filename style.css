@@ -11,7 +11,7 @@ html{
     height: 100%;
     width: 100%;
     background-color: black;
-    image-rendering: optimizeSpeed;
+    image-rendering: pixelated;
     position: absolute;
     z-index: -1;
 }

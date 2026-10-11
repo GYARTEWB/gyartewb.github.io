@@ -101,7 +101,7 @@ class Surface {
         this.texture = texture;
     }
     draw(camera) { //tänk hur ännu mera skit detta skulle se ut utan vector klassen
-        if(camera.N.dot(this.N)>0) return false;
+        if(camera.N.dot(this.N)>=0) return false;
         Surface.#O[0].assignVector(this.position).subtract(camera.position); //P, P+X, P+X+Y, P+Y, manuell beskrivning av en rektangel i 3D relativt till kameran
         Surface.#L[0].assignVector(this.X).scale(this.size.X);
         Surface.#O[1].assignVector(Surface.#L[0]).add(this.position).subtract(camera.position);
@@ -131,10 +131,11 @@ class Surface {
                 Surface.#S[i].Y<Surface.#S[n].Y?[Surface.#S[i].Y,Surface.#S[n].Y]:[Surface.#S[n].Y,Surface.#S[i].Y]
             );
         let enumY = Surface.#S.map(v=>v.Y) //letletletlet
-        let minY = Math.min(...enumY);
+        let minY = 0, maxY = 0;
+        minY = Math.min(...enumY);
         if(minY<0) 
             minY = 0;
-        let maxY = Math.max(...enumY);
+        maxY = Math.max(...enumY);
         if(maxY>=camera.hScalar) 
             maxY = camera.hScalar;
         let minX = 0;
