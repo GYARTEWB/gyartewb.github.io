@@ -101,7 +101,7 @@ class Surface {
         this.texture = texture;
     }
     draw(camera) { //tänk hur ännu mera skit detta skulle se ut utan vector klassen
-        if(camera.N.dot(this.N)>=0) return false;
+        if(camera.N.dot(this.N)>0) return false;
         Surface.#O[0].assignVector(this.position).subtract(camera.position); //P, P+X, P+X+Y, P+Y, manuell beskrivning av en rektangel i 3D relativt till kameran
         Surface.#L[0].assignVector(this.X).scale(this.size.X);
         Surface.#O[1].assignVector(Surface.#L[0]).add(this.position).subtract(camera.position);
