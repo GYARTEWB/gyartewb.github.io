@@ -165,7 +165,7 @@ class Surface {
             }
         }
         for(let i = 0; i < 4; i++) {
-            DDA(Surface.#S[i].calc.subtract(Surface.#R[i].calc.scale(10000/Surface.#R[i].magnitude)),Surface.#R[i],bigVector,(walk)=>{if(walk.X>=0&&walk.X<camera.wScalar && walk.Y>=0&&walk.Y<camera.hScalar)
+            DDA(Surface.#S[i],Surface.#R[i],Surface.#S[(i+1)%4].calc.subtract(Surface.#S[i]).abs(),(walk)=>{if(walk.X>=0&&walk.X<camera.wScalar && walk.Y>=0&&walk.Y<camera.hScalar)
                 index = (camera.wScalar*walk.Y+walk.X)*4;
                 camera.imageData[index]=0;
                 camera.imageData[index+1]=0;
