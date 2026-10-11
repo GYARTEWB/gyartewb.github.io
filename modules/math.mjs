@@ -1,9 +1,10 @@
 export {Vector};
 //Vector klassen ska användas på följande sätt:
 //undvik att skapa nya vektorer så mycket som möjligt och återanvänd vektorer eftersom extra saker sker då man skapar en vektor
-//det ska byggas upp ett system av vektorer som pratar med varandra, varje vektor anpassar sig till där den befinner sig i detta system
+//det ska byggas upp ett system av vektorer som pratar med varandra, varje vektor anpassar sig till där den befinner i detta system
+//calc ska bara användas i beräkningar och ska bara användas om det finns inget annat sätt
 class Vector {
-    static #buildFunction(name,...input) {
+    static #buildFunction(name,...input) { //vector klassen kodar sig själv, specialiserade vektor metoder för varje dimension jag kan stötta på byggs en gång om det behövs och sedan blir tilldelad för varje vektor som behöver
         let inputs = input.slice(0,-1).toString();
         let code = input[input.length-1];
         code = "(function "+name+"("+inputs+"){"+code+"})"; //funktionen får ett namn för att inte vara anonym, detta hjälper mycket i felsökning och optimering
@@ -11,13 +12,8 @@ class Vector {
         return eval(code);
     }
     static #namingConvention(index) { //räknar i bas 26
-        if(index < 3) {
-            return String.fromCharCode(88+index);
-        } else if(index > 25) {
-            return this.#namingConvention((index/26|0)-1)+this.#namingConvention(index%26);
-        }
-        return String.fromCharCode(90-index);
-    } //specialiserade vektor metoder för varje dimension jag kan stötta på byggs en gång om det behövs och sedan blir tilldelad för varje vektor som behöver
+        return index<3?String.fromCharCode(88+index):index>25?this.#namingConvention((index/26|0)-1)+this.#namingConvention(index%26):String.fromCharCode(90-index);
+    }
     static #calc = {};
     static #buildCalc(dimensions) {
         if(this.#calc[dimensions]) return this.#calc[dimensions];
@@ -117,7 +113,7 @@ class Vector {
             e = this.#namingConvention(i);
             str += "this."+e+"=Math.floor(this."+e+");"
         }
-        return this.#floor[dimensions] = this.#buildFunction("floor"+dimensions,str+";return this;");
+        return this.#floor[dimensions] = this.#buildFunction("floor"+dimensions,str+"return this;");
     }
     static #round = {}
     static #buildRound(dimensions) {
@@ -127,7 +123,7 @@ class Vector {
             e = this.#namingConvention(i);
             str += "this."+e+"=Math.round(this."+e+");"
         }
-        return this.#round[dimensions] = this.#buildFunction("round"+dimensions,str+";return this;");
+        return this.#round[dimensions] = this.#buildFunction("round"+dimensions,str+"return this;");
     }
     static #ceil = {}
     static #buildCeil(dimensions) {
@@ -137,7 +133,7 @@ class Vector {
             e = this.#namingConvention(i);
             str += "this."+e+"=Math.ceil(this."+e+");"
         }
-        return this.#ceil[dimensions] = this.#buildFunction("ceil"+dimensions,str+";return this;");
+        return this.#ceil[dimensions] = this.#buildFunction("ceil"+dimensions,str+"return this;");
     }
     static #abs = {}
     static #buildAbs(dimensions) {
@@ -147,7 +143,7 @@ class Vector {
             e = this.#namingConvention(i);
             str += "this."+e+"=Math.abs(this."+e+");"
         }
-        return this.#abs[dimensions] = this.#buildFunction("abs"+dimensions,str+";return this;");
+        return this.#abs[dimensions] = this.#buildFunction("abs"+dimensions,str+"return this;");
     }
     static #sign = {}
     static #buildSign(dimensions) {
@@ -157,7 +153,7 @@ class Vector {
             e = this.#namingConvention(i);
             str += "this."+e+"=Math.sign(this."+e+");"
         }
-        return this.#sign[dimensions] = this.#buildFunction("sign"+dimensions,str+";return this;");
+        return this.#sign[dimensions] = this.#buildFunction("sign"+dimensions,str+"return this;");
     }
     #calcVector;
     get calc() { //prototype metoder lägger till en metod med samma namn till objektet, dessa prototype metoder skrivs då över och kallas bara en gång för varje vektor, varje vektor får då bara de metoder som kommer att användas med dem

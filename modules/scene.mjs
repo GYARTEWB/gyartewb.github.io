@@ -9,7 +9,7 @@ class Star {
     position; brightnesss;
     constructor() {
         this.position = new Vector(Math.random()-0.5,Math.random()-0.5,Math.random()-0.5);
-        this.brightnesss = 0.8661-this.position.magnitude; //Math.ceil(10000*(0.5*3**0.5))/10000 - this.position.magnitude
+        this.brightnesss = 255*(0.8661-this.position.magnitude); //255*(Math.ceil(10000*(0.5*3**0.5))/10000 - this.position.magnitude)
     }
     draw(camera) {
         ON = this.position.dot(camera.N);
@@ -20,12 +20,12 @@ class Star {
             ).scale(camera.screenCoordinateScalar/ON).add(camera.middle);
             if(screenCoordinate.X>=0&&screenCoordinate.X<camera.wScalar && screenCoordinate.Y>=0&&screenCoordinate.Y<camera.hScalar) {
                 let index = camera.wScalar*(screenCoordinate.Y|0)+(screenCoordinate.X|0);
-                if(true) {
+                if(!isFinite(camera.depthBuffer.data[index])) {
                     index *= 4;
                     camera.imageData[index] = 255;
                     camera.imageData[index+1] = 255;
                     camera.imageData[index+2] = 255;
-                    camera.imageData[index+3] = 255*this.brightnesss;
+                    camera.imageData[index+3] = this.brightnesss;
                 }
             }
         }
@@ -63,9 +63,10 @@ class Dot {
     }
 }
 
+let walk = Vector.zero(2), step = Vector.zero(2);
 function DDA(start,direction,steps,func=(walk)=>null) {
-    let walk = start.calc;
-    let step = direction.calc;
+    walk.assignVector(start);
+    step.assignVector(direction);
     let itterations = 0;
     if(Math.abs(direction.Y)>Math.abs(direction.X)) {
         step.assign(direction.X/direction.Y,1).scale(Math.sign(direction.Y));
@@ -81,8 +82,15 @@ function DDA(start,direction,steps,func=(walk)=>null) {
 }
 
 class Surface {
+    static #O = [Vector.zero(3),Vector.zero(3),Vector.zero(3),Vector.zero(3)]; //vackert
+    static #L = [Vector.zero(3),Vector.zero(3),Vector.zero(3),Vector.zero(3)];
+    static #S = [Vector.zero(2),Vector.zero(2),Vector.zero(2),Vector.zero(2)];
+    static #R = [Vector.zero(2),Vector.zero(2),Vector.zero(2),Vector.zero(2)];
+    static #maxRects = [Vector.zero(2),Vector.zero(2),Vector.zero(2),Vector.zero(2)];
+    static #D = Vector.zero(2);
+    static #ON = new Float64Array(4); //slipper .fill(0), siffor är ju 64 bitars ändån
     position; size; X; N; Y; texture;
-    constructor(position=Vector.zero(3),size=new Vector(1,1),X=new Vector(1,0,0),Y=new Vector(0,0,1),N=new Vector(0,1,0),texture=(x=0,y=0,array4=[0,0,0,0])=>array4.fill(255)) {
+    constructor(position=Vector.zero(3),size=new Vector(1,1),X=new Vector(1,0,0),Y=new Vector(0,0,1),N=new Vector(0,1,0),texture=(x=0,y=0,rgb=[0,0,0])=>rgb.fill(255)) {
         this.position = position;
         this.size = size;
         this.X = X;
@@ -90,8 +98,76 @@ class Surface {
         this.Y = Y;
         this.texture = texture;
     }
-    draw(camera) {
-
+    draw(camera) { //tänk hur ännu mera skit detta skulle se ut utan vector klassen
+        Surface.#O[0].assignVector(this.position).subtract(camera.position); //P, P+X, P+X+Y, P+Y, manuell beskrivning av en rektangel i 3D relativt till kameran
+        Surface.#L[0].assignVector(this.X);
+        Surface.#O[1].assignVector(this.X).add(this.position).subtract(camera.position);
+        Surface.#L[1].assignVector(this.Y);
+        Surface.#O[2].assignVector(Surface.#O[1]).add(this.Y);
+        Surface.#L[2].assignVector(this.X).scale(-1);
+        Surface.#O[3].assignVector(this.Y).add(this.position).subtract(camera.position);
+        Surface.#L[3].assignVector(this.Y).scale(-1);
+        for(let i = 0; i < 4; i++) {
+            Surface.#ON[i] = camera.N.dot(Surface.#O[i]);
+            Surface.#S[i].assignVector(Surface.#D.assign(
+                camera.X.dot(Surface.#O[i]),
+                camera.Y.dot(Surface.#O[i])
+            )).scale(camera.screenCoordinateScalar/Surface.#ON[i]).add(camera.middle);
+            Surface.#R[i].assign(
+                camera.X.dot(Surface.#L[i]),
+                camera.Y.dot(Surface.#L[i])
+            ).scale(Surface.#ON[i]).subtract(
+                Surface.#D.scale(camera.N.dot(Surface.#L[i])) //gör inget om D ändras nu, så calc är onödigt
+            );
+        }
+        for(let i = 0, n = 1; i < 4; i++, n = (i+1)%4)
+            Surface.#maxRects[i].assign( //OK, en vector med arrays som element, väldigt logiskt
+                Surface.#S[i].X<Surface.#S[n].X?[Surface.#S[i].X,Surface.#S[n].X]:[Surface.#S[n].X,Surface.#S[i].X],
+                Surface.#S[i].Y<Surface.#S[n].Y?[Surface.#S[i].Y,Surface.#S[n].Y]:[Surface.#S[n].Y,Surface.#S[i].Y]
+            );
+        let enumY = Surface.#S.map(v=>v.Y) //letletletlet
+        let minY = Math.min(...enumY);
+        if(minY<0) 
+            minY = 0;
+        let maxY = Math.max(...enumY);
+        if(maxY>=camera.hScalar) 
+            maxY = camera.hScalar;
+        let minX = 0;
+        let maxX = 0;
+        let enumX = Array(4);
+        let index = 0;
+        let indexY = 0;
+        for(let y = minY; y < maxY; y++) {
+            enumX = [
+                Surface.#S[0].X+Surface.#R[0].X*(y-Surface.#S[0].Y)/Surface.#R[0].Y, //detta är så skit, fy fan, jag måste snygga till denna kod någon gång
+                Surface.#S[1].X+Surface.#R[1].X*(y-Surface.#S[1].Y)/Surface.#R[1].Y,
+                Surface.#S[2].X+Surface.#R[2].X*(y-Surface.#S[2].Y)/Surface.#R[2].Y,
+                Surface.#S[3].X+Surface.#R[3].X*(y-Surface.#S[3].Y)/Surface.#R[3].Y
+            ].filter((v,i)=> //filtrera skiten
+                v>Surface.#maxRects[i].X[0]&&v<Surface.#maxRects[i].X[1] &&
+                y>Surface.#maxRects[i].Y[0]&&y<Surface.#maxRects[i].Y[1]
+            );
+            minX = Math.min(...enumX);
+            if(minX<0)
+                minX = 0;
+            maxX = Math.max(...enumX);
+            if(maxX>camera.wScalar)
+                maxX = camera.wScalar;
+            indexY = 4*camera.wScalar*(y|0);
+            for(let x = minX; x < maxX; x++) {
+                index = 4*(x|0)+indexY;
+                camera.imageData.fill(255,index,index+4);
+            }
+        }
+        for(let i = 0; i < 4; i++) {
+            DDA(Surface.#S[i],Surface.#R[i],Surface.#R[i].calc.scale(1000/Surface.#R[i].magnitude).abs(),(walk)=>{if(walk.X>=0&&walk.X<camera.wScalar && walk.Y>=0&&walk.Y<camera.hScalar)
+                index = (camera.wScalar*walk.Y+walk.X)*4;
+                camera.imageData[index]=0;
+                camera.imageData[index+1]=0;
+                camera.imageData[index+2]=255;
+                camera.imageData[index+3]=255;
+            });
+        }
     }
 }
 
@@ -121,9 +197,6 @@ class Block {
 
 class Scene {
     elements;
-    update(deltaTime) {
-        this.elements.forEach(element=>element.update&&element.update(deltaTime));
-    }
     constructor() {
         this.elements = new Set();
     }

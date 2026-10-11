@@ -22,8 +22,7 @@ let time = performance.now();
 let deltaTime = 0;
 for(let i = 0; i < 1500; i++)
    scene.elements.add(new Star());
-for(let i = 0; i < 50000; i++)
-    scene.elements.add(new Dot(new Vector(Math.random()-0.5,2,Math.random()-0.5),255,0,0));
+scene.elements.add(new Surface(new Vector(-0.5,2,-0.5),new Vector(1,1),new Vector(1,0,0),new Vector(0,0,1),new Vector(0,-1,0)));
 let rotationSpeed = new Vector(0,0);
 let speed = new Vector(0,0,0);
 
@@ -46,20 +45,36 @@ let mSpeed = 1;
 function checkKeys() {
     rotationSpeed.assign(0,0);
     speed.assign(0,0,0);
-    if(keys.arrowright) rotationSpeed.X+=sensitivity;
-    if(keys.arrowleft) rotationSpeed.X-=sensitivity;
-    if(keys.arrowup) rotationSpeed.Y+=sensitivity;
-    if(keys.arrowdown) rotationSpeed.Y-=sensitivity;
-    if(keys.w) speed.add(camera.N.calc.scale(mSpeed));
-    if(keys.s) speed.subtract(camera.N.calc.scale(mSpeed));
-    if(keys.d) speed.add(camera.X.calc.scale(mSpeed));
-    if(keys.a) speed.subtract(camera.X.calc.scale(mSpeed));
-    if(keys.e) speed.subtract(camera.Y.calc.scale(mSpeed));
-    if(keys.c) speed.add(camera.Y.calc.scale(mSpeed));
+    if(keys.arrowright) rotationSpeed.X+=1;
+    if(keys.arrowleft) rotationSpeed.X-=1;
+    if(keys.arrowup) rotationSpeed.Y+=1;
+    if(keys.arrowdown) rotationSpeed.Y-=1;
+    if(keys.w) speed.add(camera.N);
+    if(keys.s) speed.subtract(camera.N);
+    if(keys.d) speed.add(camera.X);
+    if(keys.a) speed.subtract(camera.X);
+    if(keys.e) speed.subtract(camera.Y);
+    if(keys.c) speed.add(camera.Y);
     if(keys.i) camera.screenDistance*=1+deltaTime;
     if(keys.o) camera.screenDistance*=1-deltaTime;
     if(keys.r) camera.screenDistance=1;
-    if(keys.shift) mSpeed = 10, sensitivity = 4; else mSpeed = 1, sensitivity = 2; 
+    if(keys.shift) mSpeed = 10, sensitivity = 4; else mSpeed = 1, sensitivity = 2;
+    speed.scale(mSpeed/(speed.magnitude||1));
+    rotationSpeed.scale(sensitivity/(rotationSpeed.magnitude||1));
+}
+
+function compare(fn,fn2,times) {
+    let t1=0,t2=0,time = performance.now();
+    for(let i = 0; i < times; i++) {
+        fn();
+    }
+    console.log("fn ",t1=performance.now()-time);
+    time = performance.now();
+    for(let i = 0; i < times; i++) {
+        fn2();
+    }
+    console.log("fn2",t2=performance.now()-time);
+    console.log(t1>t2?"fn2":"fn");
 }
 
 function game() {
@@ -69,7 +84,6 @@ function game() {
     info.textContent = Math.round(1/deltaTime);
     camera.position.add(speed.calc.scale(deltaTime));
     camera.rotation.add(rotationSpeed.calc.scale(deltaTime));
-    scene.update(deltaTime);
     camera.update();
     camera.shoot(imageData);
     ctx.putImageData(imageData,0,0);
