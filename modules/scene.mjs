@@ -144,8 +144,8 @@ class Surface {
                 Surface.#S[2].X+Surface.#R[2].X*(y-Surface.#S[2].Y)/Surface.#R[2].Y,
                 Surface.#S[3].X+Surface.#R[3].X*(y-Surface.#S[3].Y)/Surface.#R[3].Y
             ].filter((v,i)=> //filtrera skiten
-                v>Surface.#maxRects[i].X[0]&&v<Surface.#maxRects[i].X[1] &&
-                y>Surface.#maxRects[i].Y[0]&&y<Surface.#maxRects[i].Y[1]
+                v>=Surface.#maxRects[i].X[0]&&v<=Surface.#maxRects[i].X[1] &&
+                y>=Surface.#maxRects[i].Y[0]&&y<=Surface.#maxRects[i].Y[1]
             );
             minX = Math.min(...enumX);
             if(minX<0)
