@@ -100,13 +100,13 @@ class Surface {
     }
     draw(camera) { //tänk hur ännu mera skit detta skulle se ut utan vector klassen
         Surface.#O[0].assignVector(this.position).subtract(camera.position); //P, P+X, P+X+Y, P+Y, manuell beskrivning av en rektangel i 3D relativt till kameran
-        Surface.#L[0].assignVector(this.X);
-        Surface.#O[1].assignVector(this.X).add(this.position).subtract(camera.position);
-        Surface.#L[1].assignVector(this.Y);
-        Surface.#O[2].assignVector(Surface.#O[1]).add(this.Y);
-        Surface.#L[2].assignVector(this.X).scale(-1);
-        Surface.#O[3].assignVector(this.Y).add(this.position).subtract(camera.position);
-        Surface.#L[3].assignVector(this.Y).scale(-1);
+        Surface.#L[0].assignVector(this.X).scale(this.size.X);
+        Surface.#O[1].assignVector(Surface.#L[0]).add(this.position).subtract(camera.position);
+        Surface.#L[1].assignVector(this.Y).scale(this.size.Y);
+        Surface.#O[2].assignVector(Surface.#O[1]).add(Surface.#L[1]);
+        Surface.#L[2].assignVector(this.X).scale(-this.size.X);
+        Surface.#O[3].assignVector(Surface.#L[1]).add(this.position).subtract(camera.position);
+        Surface.#L[3].assignVector(this.Y).scale(-this.size.Y);
         for(let i = 0; i < 4; i++) {
             Surface.#ON[i] = camera.N.dot(Surface.#O[i]);
             Surface.#S[i].assignVector(Surface.#D.assign(
@@ -120,6 +120,7 @@ class Surface {
                 Surface.#D.scale(camera.N.dot(Surface.#L[i])) //gör inget om D ändras nu, så calc är onödigt
             );
         }
+        if(Surface.#ON.every(v=>v<=0)) return;
         for(let i = 0, n = 1; i < 4; i++, n = (i+1)%4)
             Surface.#maxRects[i].assign( //OK, en vector med arrays som element, väldigt logiskt
                 Surface.#S[i].X<Surface.#S[n].X?[Surface.#S[i].X,Surface.#S[n].X]:[Surface.#S[n].X,Surface.#S[i].X],
@@ -144,7 +145,7 @@ class Surface {
                 Surface.#S[2].X+Surface.#R[2].X*(y-Surface.#S[2].Y)/Surface.#R[2].Y,
                 Surface.#S[3].X+Surface.#R[3].X*(y-Surface.#S[3].Y)/Surface.#R[3].Y
             ].filter((v,i)=> //filtrera skiten
-                v>=Surface.#maxRects[i].X[0]&&v<=Surface.#maxRects[i].X[1] &&
+                v>=Surface.#maxRects[i].X[0]&&v<=Surface.#maxRects[i].X[1] && //kanske någon floating point skit kan ske här? titta här om skit sker
                 y>=Surface.#maxRects[i].Y[0]&&y<=Surface.#maxRects[i].Y[1]
             );
             minX = Math.min(...enumX);
@@ -160,7 +161,7 @@ class Surface {
             }
         }
         for(let i = 0; i < 4; i++) {
-            DDA(Surface.#S[i],Surface.#R[i],Surface.#R[i].calc.scale(1000/Surface.#R[i].magnitude).abs(),(walk)=>{if(walk.X>=0&&walk.X<camera.wScalar && walk.Y>=0&&walk.Y<camera.hScalar)
+            DDA(Surface.#S[i],Surface.#R[i],Surface.#R[i].calc.scale(10000/Surface.#R[i].magnitude).abs(),(walk)=>{if(walk.X>=0&&walk.X<camera.wScalar && walk.Y>=0&&walk.Y<camera.hScalar)
                 index = (camera.wScalar*walk.Y+walk.X)*4;
                 camera.imageData[index]=0;
                 camera.imageData[index+1]=0;
@@ -186,9 +187,6 @@ class Block {
             new Surface()  //-1 0 0
         ];
         this.update();
-    }
-    update(deltaTime) {
-
     }
     draw(camera) {
         for(let i = 0; i < this.surfaces.length; this.surfaces[i].draw(camera));
