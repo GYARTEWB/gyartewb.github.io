@@ -111,6 +111,7 @@ class Surface {
         Surface.#O[3].assignVector(Surface.#L[1]).add(this.position).subtract(camera.position);
         Surface.#L[3].assignVector(this.Y).scale(-this.size.Y);
         let bool = true;
+        let bool2 = true;
         for(let i = 0; i < 4; i++) {
             bool &= (Surface.#ON[i] = camera.N.dot(Surface.#O[i])) <= 0;
             Surface.#S[i].assignVector(Surface.#D.assign(
@@ -123,8 +124,9 @@ class Surface {
             ).scale(Surface.#ON[i]).subtract(
                 Surface.#D.scale(camera.N.dot(Surface.#L[i])) //gör inget om D ändras nu, så calc är onödigt
             );
+            bool2 &= Surface.#S[i].X<0 || Surface.#S[i].X>=camera.wScalar || Surface.#S[i].Y<0 || Surface.#S[i].Y>=camera.hScalar;
         }
-        if(bool) return false;
+        if(bool||bool2) return false;
         for(let i = 0, n = 1; i < 4; i++, n = (i+1)%4)
             Surface.#maxRects[i].assign( //OK, en vector med arrays som element, väldigt logiskt
                 Surface.#S[i].X<Surface.#S[n].X?[Surface.#S[i].X,Surface.#S[n].X]:[Surface.#S[n].X,Surface.#S[i].X],
@@ -157,7 +159,7 @@ class Surface {
             if(minX<0)
                 minX = 0;
             maxX = Math.max(...enumX);
-            if(maxX>camera.wScalar)
+            if(maxX>=camera.wScalar)
                 maxX = camera.wScalar;
             indexY = 4*camera.wScalar*(y|0);
             for(let x = minX; x < maxX; x++) {
