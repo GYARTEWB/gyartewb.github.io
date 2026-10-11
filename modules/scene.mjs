@@ -81,6 +81,8 @@ function DDA(start,direction,steps,func=(walk)=>null) {
     }
 }
 
+let bigVector = new Vector(20000,20000);
+
 class Surface {
     static #O = [Vector.zero(3),Vector.zero(3),Vector.zero(3),Vector.zero(3)]; //vackert
     static #L = [Vector.zero(3),Vector.zero(3),Vector.zero(3),Vector.zero(3)];
@@ -99,6 +101,7 @@ class Surface {
         this.texture = texture;
     }
     draw(camera) { //tänk hur ännu mera skit detta skulle se ut utan vector klassen
+        if(camera.N.dot(this.N)>0) return false;
         Surface.#O[0].assignVector(this.position).subtract(camera.position); //P, P+X, P+X+Y, P+Y, manuell beskrivning av en rektangel i 3D relativt till kameran
         Surface.#L[0].assignVector(this.X).scale(this.size.X);
         Surface.#O[1].assignVector(Surface.#L[0]).add(this.position).subtract(camera.position);
@@ -107,8 +110,9 @@ class Surface {
         Surface.#L[2].assignVector(this.X).scale(-this.size.X);
         Surface.#O[3].assignVector(Surface.#L[1]).add(this.position).subtract(camera.position);
         Surface.#L[3].assignVector(this.Y).scale(-this.size.Y);
+        let bool = true;
         for(let i = 0; i < 4; i++) {
-            Surface.#ON[i] = camera.N.dot(Surface.#O[i]);
+            bool &= (Surface.#ON[i] = camera.N.dot(Surface.#O[i])) <= 0;
             Surface.#S[i].assignVector(Surface.#D.assign(
                 camera.X.dot(Surface.#O[i]),
                 camera.Y.dot(Surface.#O[i])
@@ -120,7 +124,7 @@ class Surface {
                 Surface.#D.scale(camera.N.dot(Surface.#L[i])) //gör inget om D ändras nu, så calc är onödigt
             );
         }
-        if(Surface.#ON.every(v=>v<=0)) return;
+        if(bool) return false;
         for(let i = 0, n = 1; i < 4; i++, n = (i+1)%4)
             Surface.#maxRects[i].assign( //OK, en vector med arrays som element, väldigt logiskt
                 Surface.#S[i].X<Surface.#S[n].X?[Surface.#S[i].X,Surface.#S[n].X]:[Surface.#S[n].X,Surface.#S[i].X],
@@ -161,7 +165,7 @@ class Surface {
             }
         }
         for(let i = 0; i < 4; i++) {
-            DDA(Surface.#S[i],Surface.#R[i],Surface.#R[i].calc.scale(10000/Surface.#R[i].magnitude).abs(),(walk)=>{if(walk.X>=0&&walk.X<camera.wScalar && walk.Y>=0&&walk.Y<camera.hScalar)
+            DDA(Surface.#S[i].calc.subtract(Surface.#R[i].calc.scale(10000/Surface.#R[i].magnitude)),Surface.#R[i],bigVector,(walk)=>{if(walk.X>=0&&walk.X<camera.wScalar && walk.Y>=0&&walk.Y<camera.hScalar)
                 index = (camera.wScalar*walk.Y+walk.X)*4;
                 camera.imageData[index]=0;
                 camera.imageData[index+1]=0;
@@ -169,6 +173,7 @@ class Surface {
                 camera.imageData[index+3]=255;
             });
         }
+        return true;
     }
 }
 
@@ -178,18 +183,17 @@ class Block {
         this.position = position;
         this.size = size;
         this.rotation = rotation;
-        this.surfaces=[
-            new Surface(), //0 0 1
-            new Surface(), //0 0 -1
-            new Surface(), //0 1 0
-            new Surface(), //0 -1 0
-            new Surface(), //1 0 0
-            new Surface()  //-1 0 0
+        this.surfaces=[ //bra att OOP abstraktar bort dessa detaljer, OOP abstraktar bort detaljer även här!
+            new Surface(new Vector(-0.5,-0.5,0.5).scale(this.size.Z).add(this.position),new Vector(this.size.X,this.size.Y),new Vector(1,0,0),new Vector(0,1,0),new Vector(0,0,1)), //0 0 1
+            new Surface(new Vector(-0.5,-0.5,-0.5).scale(this.size.Z).add(this.position),new Vector(this.size.X,this.size.Y),new Vector(1,0,0),new Vector(0,1,0),new Vector(0,0,-1)), //0 0 -1
+            new Surface(new Vector(-0.5,0.5,-0.5).scale(this.size.Y).add(this.position),new Vector(this.size.X,this.size.Z),new Vector(1,0,0),new Vector(0,0,1),new Vector(0,1,0)), //0 1 0
+            new Surface(new Vector(-0.5,-0.5,-0.5).scale(this.size.Y).add(this.position),new Vector(this.size.X,this.size.Z),new Vector(1,0,0),new Vector(0,0,1),new Vector(0,-1,0)), //0 -1 0
+            new Surface(new Vector(0.5,-0.5,-0.5).scale(this.size.X).add(this.position),new Vector(this.size.Y,this.size.Z),new Vector(0,1,0),new Vector(0,0,1),new Vector(1,0,0)), //1 0 0
+            new Surface(new Vector(-0.5,-0.5,-0.5).scale(this.size.X).add(this.position),new Vector(this.size.Y,this.size.Z),new Vector(0,1,0),new Vector(0,0,1),new Vector(-1,0,0))  //-1 0 0
         ];
-        this.update();
     }
     draw(camera) {
-        for(let i = 0; i < this.surfaces.length; this.surfaces[i].draw(camera));
+        for(let i = 0; i < this.surfaces.length; this.surfaces[i++].draw(camera));
     }
 }
 
