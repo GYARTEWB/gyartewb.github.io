@@ -5,7 +5,7 @@ const info = document.getElementById("info");
 
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
-canvas.height = 250;
+canvas.height = 500;
 var propX = window.innerWidth / window.innerHeight;
 canvas.width = Math.round(canvas.height * propX);
 let imageData = ctx.createImageData(canvas.width,canvas.height);
@@ -22,8 +22,8 @@ let time = performance.now();
 let deltaTime = 0;
 for(let i = 0; i < 1500; i++)
    scene.elements.add(new Star());
-for(let i = 0; i < 50; i++) scene.elements.add(new Block(new Vector(Math.random()-0.5,Math.random()-0.5,Math.random()-0.5).scale(10),new Vector(1,1,1)));
-//scene.elements.add(new Surface(new Vector(-0.5,2,-0.5),new Vector(1,1),new Vector(1,0,0),new Vector(0,0,1),new Vector(0,-1,0)));
+//scene.elements.add(new Block(new Vector(0,2,0),new Vector(1,1,1)));
+scene.elements.add(new Surface(new Vector(-0.5,2,-0.5),new Vector(1,1),new Vector(1,0,0),new Vector(0,0,1),new Vector(0,-1,0)));
 let rotationSpeed = new Vector(0,0);
 let speed = new Vector(0,0,0);
 

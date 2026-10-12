@@ -101,7 +101,6 @@ class Surface {
         this.texture = texture;
     }
     draw(camera) { //tänk hur ännu mera skit detta skulle se ut utan vector klassen
-        if(camera.N.dot(this.N)>0) return false;
         Surface.#O[0].assignVector(this.position).subtract(camera.position); //P, P+X, P+X+Y, P+Y, manuell beskrivning av en rektangel i 3D relativt till kameran
         Surface.#L[0].assignVector(this.X).scale(this.size.X);
         Surface.#O[1].assignVector(Surface.#L[0]).add(this.position).subtract(camera.position);
@@ -111,7 +110,6 @@ class Surface {
         Surface.#O[3].assignVector(Surface.#L[1]).add(this.position).subtract(camera.position);
         Surface.#L[3].assignVector(this.Y).scale(-this.size.Y);
         let bool = true;
-        let bool2 = true;
         for(let i = 0; i < 4; i++) {
             bool &= (Surface.#ON[i] = camera.N.dot(Surface.#O[i])) <= 0;
             Surface.#S[i].assignVector(Surface.#D.assign(
@@ -124,9 +122,8 @@ class Surface {
             ).scale(Surface.#ON[i]).subtract(
                 Surface.#D.scale(camera.N.dot(Surface.#L[i])) //gör inget om D ändras nu, så calc är onödigt
             );
-            bool2 &= Surface.#S[i].X<0 || Surface.#S[i].X>=camera.wScalar || Surface.#S[i].Y<0 || Surface.#S[i].Y>=camera.hScalar;
         }
-        if(bool||bool2) return false;
+        if(bool) return false;
         for(let i = 0, n = 1; i < 4; i++, n = (i+1)%4)
             Surface.#maxRects[i].assign( //OK, en vector med arrays som element, väldigt logiskt
                 Surface.#S[i].X<Surface.#S[n].X?[Surface.#S[i].X,Surface.#S[n].X]:[Surface.#S[n].X,Surface.#S[i].X],
@@ -153,7 +150,7 @@ class Surface {
                 Surface.#S[3].X+Surface.#R[3].X*(y-Surface.#S[3].Y)/Surface.#R[3].Y
             ].filter((v,i)=> //filtrera skiten
                 v>=Surface.#maxRects[i].X[0]&&v<=Surface.#maxRects[i].X[1] && //kanske någon floating point skit kan ske här? titta här om skit sker
-                y>=Surface.#maxRects[i].Y[0]&&y<=Surface.#maxRects[i].Y[1]
+                y>Surface.#maxRects[i].Y[0]&&y<Surface.#maxRects[i].Y[1]
             );
             minX = Math.min(...enumX);
             if(minX<0)
@@ -161,19 +158,22 @@ class Surface {
             maxX = Math.max(...enumX);
             if(maxX>=camera.wScalar)
                 maxX = camera.wScalar;
-            indexY = 4*camera.wScalar*(y|0);
+            indexY = camera.wScalar*(y|0);
             for(let x = minX; x < maxX; x++) {
-                index = 4*(x|0)+indexY;
+                camera.depthBuffer.data[index = (x|0)+indexY] = 0;
+                index *= 4;
                 camera.imageData.fill(255,index,index+4);
             }
         }
         for(let i = 0; i < 4; i++) {
-            DDA(Surface.#S[i],Surface.#R[i],Surface.#S[(i+1)%4].calc.subtract(Surface.#S[i]).abs(),(walk)=>{if(walk.X>=0&&walk.X<camera.wScalar && walk.Y>=0&&walk.Y<camera.hScalar)
-                index = (camera.wScalar*walk.Y+walk.X)*4;
-                camera.imageData[index]=0;
-                camera.imageData[index+1]=0;
-                camera.imageData[index+2]=255;
-                camera.imageData[index+3]=255;
+            DDA(Surface.#S[i].calc.subtract(Surface.#R[i].calc.scale(10000/Surface.#R[i].magnitude)),Surface.#R[i],bigVector,(walk)=>{
+                if(walk.X>=0&&walk.X<camera.wScalar && walk.Y>=0&&walk.Y<camera.hScalar && !isFinite(camera.depthBuffer.data[index=camera.wScalar*walk.Y+walk.X])) {
+                    index *= 4;
+                    camera.imageData[index]=0;
+                    camera.imageData[index+1]=0;
+                    camera.imageData[index+2]=255;
+                    camera.imageData[index+3]=255;
+                }
             });
         }
         return true;
