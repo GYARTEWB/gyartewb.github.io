@@ -81,102 +81,49 @@ function DDA(start,direction,steps,func=(walk)=>null) {
     }
 }
 
+
 let bigVector = new Vector(20000,20000);
 
+class line2D {
+    start;end;
+    constructor(start=Vector.zero(2),direction=Vector.zero(2)) {
+        this.start=start;
+        this.direction=direction;
+    }
+}
+
+let SO = [Vector.zero(3),Vector.zero(3),Vector.zero(3),Vector.zero(3)];
+
+let SL = [new line2D,new line2D,new line2D,new line2D];
+
+let SON = new Float64Array(4); //skitbra variabel namn!
+
 class Surface {
-    static #O = [Vector.zero(3),Vector.zero(3),Vector.zero(3),Vector.zero(3)]; //vackert
-    static #L = [Vector.zero(3),Vector.zero(3),Vector.zero(3),Vector.zero(3)];
-    static #S = [Vector.zero(2),Vector.zero(2),Vector.zero(2),Vector.zero(2)];
-    static #R = [Vector.zero(2),Vector.zero(2),Vector.zero(2),Vector.zero(2)];
-    static #maxRects = [Vector.zero(2),Vector.zero(2),Vector.zero(2),Vector.zero(2)];
-    static #D = Vector.zero(2);
-    static #ON = new Float64Array(4); //slipper .fill(0), siffor är ju 64 bitars ändån
-    position; size; X; N; Y; texture;
+    position; size; X; N; Y; corners; texture;
     constructor(position=Vector.zero(3),size=new Vector(1,1),X=new Vector(1,0,0),Y=new Vector(0,0,1),N=new Vector(0,1,0),texture=(x=0,y=0,rgb=[0,0,0])=>rgb.fill(255)) {
         this.position = position;
         this.size = size;
         this.X = X;
         this.N = N;
         this.Y = Y;
+        this.corners = [
+            this.position.clone,
+            this.position.clone.add(this.X.calc.scale(this.size.X)),
+            this.position.clone.add(this.X.calc.scale(this.size.X)).add(this.Y.calc.scale(this.size.Y)),
+            this.position.clone.add(this.Y.calc.scale(this.size.Y))
+        ]
         this.texture = texture;
     }
-    draw(camera) { //tänk hur ännu mera skit detta skulle se ut utan vector klassen
-        Surface.#O[0].assignVector(this.position).subtract(camera.position); //P, P+X, P+X+Y, P+Y, manuell beskrivning av en rektangel i 3D relativt till kameran
-        Surface.#L[0].assignVector(this.X).scale(this.size.X);
-        Surface.#O[1].assignVector(Surface.#L[0]).add(this.position).subtract(camera.position);
-        Surface.#L[1].assignVector(this.Y).scale(this.size.Y);
-        Surface.#O[2].assignVector(Surface.#O[1]).add(Surface.#L[1]);
-        Surface.#L[2].assignVector(this.X).scale(-this.size.X);
-        Surface.#O[3].assignVector(Surface.#L[1]).add(this.position).subtract(camera.position);
-        Surface.#L[3].assignVector(this.Y).scale(-this.size.Y);
-        let bool = true;
-        for(let i = 0; i < 4; i++) {
-            bool &= (Surface.#ON[i] = camera.N.dot(Surface.#O[i])) <= 0;
-            Surface.#S[i].assignVector(Surface.#D.assign(
-                camera.X.dot(Surface.#O[i]),
-                camera.Y.dot(Surface.#O[i])
-            )).scale(camera.screenCoordinateScalar/Surface.#ON[i]).add(camera.middle);
-            Surface.#R[i].assign(
-                camera.X.dot(Surface.#L[i]),
-                camera.Y.dot(Surface.#L[i])
-            ).scale(Surface.#ON[i]).subtract(
-                Surface.#D.scale(camera.N.dot(Surface.#L[i])) //gör inget om D ändras nu, så calc är onödigt
-            );
+    draw(camera) {
+        SO[0].assignVector(this.corners[0]).subtract(camera.position);
+        SO[1].assignVector(this.corners[1]).subtract(camera.position);
+        SO[2].assignVector(this.corners[2]).subtract(camera.position);
+        SO[3].assignVector(this.corners[3]).subtract(camera.position);
+        SON[0] = camera.N.dot(SO[0]);
+        SON[1] = camera.N.dot(SO[1]);
+        for(let i = 0, n = 1; i < 4; i++, n = (i+1)%4) {
+
         }
-        if(bool) return false;
-        for(let i = 0, n = 1; i < 4; i++, n = (i+1)%4)
-            Surface.#maxRects[i].assign( //OK, en vector med arrays som element, väldigt logiskt
-                Surface.#S[i].X<Surface.#S[n].X?[Surface.#S[i].X,Surface.#S[n].X]:[Surface.#S[n].X,Surface.#S[i].X],
-                Surface.#S[i].Y<Surface.#S[n].Y?[Surface.#S[i].Y,Surface.#S[n].Y]:[Surface.#S[n].Y,Surface.#S[i].Y]
-            );
-        let enumY = Surface.#S.map(v=>v.Y) //letletletlet
-        let minY = 0, maxY = 0;
-        minY = Math.min(...enumY);
-        if(minY<0) 
-            minY = 0;
-        maxY = Math.max(...enumY);
-        if(maxY>=camera.hScalar) 
-            maxY = camera.hScalar;
-        let minX = 0;
-        let maxX = 0;
-        let enumX = Array(4);
-        let index = 0;
-        let indexY = 0;
-        for(let y = minY; y < maxY; y++) {
-            enumX = [
-                Surface.#S[0].X+Surface.#R[0].X*(y-Surface.#S[0].Y)/Surface.#R[0].Y, //detta är så skit, fy fan, jag måste snygga till denna kod någon gång
-                Surface.#S[1].X+Surface.#R[1].X*(y-Surface.#S[1].Y)/Surface.#R[1].Y,
-                Surface.#S[2].X+Surface.#R[2].X*(y-Surface.#S[2].Y)/Surface.#R[2].Y,
-                Surface.#S[3].X+Surface.#R[3].X*(y-Surface.#S[3].Y)/Surface.#R[3].Y
-            ].filter((v,i)=> //filtrera skiten
-                v>=Surface.#maxRects[i].X[0]&&v<=Surface.#maxRects[i].X[1] && //kanske någon floating point skit kan ske här? titta här om skit sker
-                y>Surface.#maxRects[i].Y[0]&&y<Surface.#maxRects[i].Y[1]
-            );
-            minX = Math.min(...enumX);
-            if(minX<0)
-                minX = 0;
-            maxX = Math.max(...enumX);
-            if(maxX>=camera.wScalar)
-                maxX = camera.wScalar;
-            indexY = camera.wScalar*(y|0);
-            for(let x = minX; x < maxX; x++) {
-                camera.depthBuffer.data[index = (x|0)+indexY] = 0;
-                index *= 4;
-                camera.imageData.fill(255,index,index+4);
-            }
-        }
-        for(let i = 0; i < 4; i++) {
-            DDA(Surface.#S[i].calc.subtract(Surface.#R[i].calc.scale(10000/Surface.#R[i].magnitude)),Surface.#R[i],bigVector,(walk)=>{
-                if(walk.X>=0&&walk.X<camera.wScalar && walk.Y>=0&&walk.Y<camera.hScalar && !isFinite(camera.depthBuffer.data[index=camera.wScalar*walk.Y+walk.X])) {
-                    index *= 4;
-                    camera.imageData[index]=0;
-                    camera.imageData[index+1]=0;
-                    camera.imageData[index+2]=255;
-                    camera.imageData[index+3]=255;
-                }
-            });
-        }
-        return true;
     }
 }
 
@@ -221,7 +168,7 @@ class depthBuffer {
 
 class Camera {
     maxYrotation=Math.PI*0.5;
-    imageData; depthBuffer; middle; hScalar; wScalar; scene; position; rotation; screenCoordinateScalar; screenDistance; X; N; Y; light;
+    imageData; depthBuffer; middle; hScalar; wScalar; scene; position; rotation; screenCoordinateScalar; scalarRecip; screenDistance; X; N; Y; light;
     constructor(scene=new Scene(),screenDistance=1,light=100,position=Vector.zero(3),rotation=Vector.zero(2)) {
         this.middle = Vector.zero(2);
         this.scene = scene;
@@ -253,6 +200,7 @@ class Camera {
         this.hScalar = imageData.height;
         this.wScalar = imageData.width;
         this.screenCoordinateScalar = this.hScalar*this.screenDistance;
+        this.scalarRecip = 1/this.hScalar;
         this.imageData = imageData.data;
         this.scene.elements.forEach(element=>element.draw(this));
         this.depthBuffer.reset();

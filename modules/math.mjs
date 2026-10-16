@@ -24,6 +24,16 @@ class Vector {
         }
         return this.#calc[dimensions] = this.#buildFunction("calc"+dimensions,str+"return this.#calcVector;");
     }
+    static #clone = {};
+    static #buildClone(dimensions) {
+        if(this.#clone[dimensions]) return this.#clone[dimensions];
+        let e = this.#namingConvention(0), str = "return new this.constructor(this."+e;
+        for(let i = 1; i < dimensions; i++) {
+            e = this.#namingConvention(i);
+            str += ",this."+e;
+        }
+        return this.#clone[dimensions] = this.#buildFunction("clone"+dimensions,str+");");
+    }
     static #assignVector = {};
     static #buildAssignVector(dimensions) {
         if(this.#assignVector[dimensions]) return this.#assignVector[dimensions];
@@ -160,6 +170,10 @@ class Vector {
         this.#calcVector = Vector.zero(this.#dimensions);
         Object.defineProperty(this,"calc",{get:Vector.#buildCalc(this.#dimensions)});
         return this.calc;
+    }
+    get clone() {
+        Object.defineProperty(this,"clone",{get:Vector.#buildClone(this.#dimensions)});
+        return this.clone;
     }
     #dimensions;
     get dimensions() {

@@ -16,14 +16,37 @@ window.addEventListener("resize",(e) => {
 });
 let scene = new Scene();
 
-let camera = new Camera(scene,1,1);
+let camera = new Camera(scene,1,Infinity);
 
 let time = performance.now();
 let deltaTime = 0;
-for(let i = 0; i < 1500; i++)
+for(let i = 0; i < 15000; i++)
    scene.elements.add(new Star());
 //scene.elements.add(new Block(new Vector(0,2,0),new Vector(1,1,1)));
 scene.elements.add(new Surface(new Vector(-0.5,2,-0.5),new Vector(1,1),new Vector(1,0,0),new Vector(0,0,1),new Vector(0,-1,0)));
+
+class AnimationDot extends Dot {
+    static list = new Set();
+    static update(deltaTime) {
+        this.list.forEach(dot=>{
+            dot.angle = (dot.angle+deltaTime)%(Math.PI*2);
+            dot.position.assign(
+                dot.position.X,
+                dot.position.Y,
+                Math.tan(3*Math.sin(time*0.0005)*dot.angle+time*0.0001)+Math.sin(time*0.01+dot.angle*5)*0.5
+            )
+        })
+    }
+    constructor(angle) {
+        super(new Vector(Math.cos(angle)*5,Math.sin(angle)*5,0),255,0,0);
+        this.angle = angle;
+        AnimationDot.list.add(this);
+    }
+}
+
+for(let i = 0; i < 2*Math.PI; scene.elements.add(new AnimationDot(i+=0.00005)));
+
+
 let rotationSpeed = new Vector(0,0);
 let speed = new Vector(0,0,0);
 
@@ -85,6 +108,7 @@ function game() {
     info.textContent = Math.round(1/deltaTime);
     camera.position.add(speed.calc.scale(deltaTime));
     camera.rotation.add(rotationSpeed.calc.scale(deltaTime));
+    AnimationDot.update(deltaTime);
     camera.update();
     camera.shoot(imageData);
     ctx.putImageData(imageData,0,0);
