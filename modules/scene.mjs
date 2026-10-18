@@ -63,6 +63,8 @@ class Dot {
     }
 }
 
+let bigvector2D = new Vector(2E4,2E4);
+
 let walk = Vector.zero(2), step = Vector.zero(2);
 function DDA(start,direction,steps,func=(walk)=>null) {
     walk.assignVector(start);
@@ -81,9 +83,6 @@ function DDA(start,direction,steps,func=(walk)=>null) {
     }
 }
 
-
-let bigVector = new Vector(20000,20000);
-
 class line2D {
     start;end;
     constructor(start=Vector.zero(2),direction=Vector.zero(2)) {
@@ -92,11 +91,14 @@ class line2D {
     }
 }
 
-let SO = [Vector.zero(3),Vector.zero(3),Vector.zero(3),Vector.zero(3)];
-
-let SL = [new line2D,new line2D,new line2D,new line2D];
-
-let SON = new Float64Array(4); //skitbra variabel namn!
+let SO = [Vector.zero(3),Vector.zero(3),Vector.zero(3),Vector.zero(3)], //återanvänd vektorer!!!!
+    SON = new Float64Array(4), //skitbra variabel namn! väldigt läsbart! kommer definitivt veta vad detta är om några veckor!
+    SL = [new line2D,new line2D,new line2D,new line2D], //ska fan inte skapa nya line2D varje gång en yta ritas, man ska återanvända!
+    SD = Vector.zero(2), //återanvänd!!!!!!
+    L = Vector.zero(3),
+    SV = Vector.zero(3),
+    K = Vector.zero(3),
+    index = 0;
 
 class Surface {
     position; size; X; N; Y; corners; texture;
@@ -106,23 +108,103 @@ class Surface {
         this.X = X;
         this.N = N;
         this.Y = Y;
+        this.update();
+        this.texture = texture;
+    }
+    update() { //för att beräkna var hörnen hamnar om värden ändras (kan avända en setter istället? dåligt att manuellt behöva updatera? få se längre fram hur skit koden blir)
         this.corners = [
             this.position.clone,
             this.position.clone.add(this.X.calc.scale(this.size.X)),
             this.position.clone.add(this.X.calc.scale(this.size.X)).add(this.Y.calc.scale(this.size.Y)),
             this.position.clone.add(this.Y.calc.scale(this.size.Y))
         ]
-        this.texture = texture;
     }
     draw(camera) {
         SO[0].assignVector(this.corners[0]).subtract(camera.position);
         SO[1].assignVector(this.corners[1]).subtract(camera.position);
         SO[2].assignVector(this.corners[2]).subtract(camera.position);
         SO[3].assignVector(this.corners[3]).subtract(camera.position);
-        SON[0] = camera.N.dot(SO[0]);
-        SON[1] = camera.N.dot(SO[1]);
-        for(let i = 0, n = 1; i < 4; i++, n = (i+1)%4) {
+        SON[0]=camera.N.dot(SO[0]);
+        SON[1]=camera.N.dot(SO[1]);
+        SON[2]=camera.N.dot(SO[2]);
+        SON[3]=camera.N.dot(SO[3]);
+        let lines = [];
+        for(let i = 0, n = 1, start,end,dot; i < 4; i++, n = (i+1)%4) {
+            if(SON[i]>0) { //om i är framför skärmen
+                start = SO[i];
+                end = SO[n];
+                dot = SON[i];
+            } else if(SON[n]>0) { //annars om n är framför skärmen
+                start = SO[n];
+                end = SO[i];
+                dot = SON[n];
+            } else continue //varken n eller i framför skärmen, ingen linje kan visas mellan de 2 punkterna på skärmen då
+            SD.assign(
+                start.dot(camera.X),
+                start.dot(camera.Y)
+            );
+            L.assignVector(end).subtract(start);
+            SL[i].start.assignVector(SD).scale(camera.screenCoordinateScalar/dot).add(camera.middle);
+            SL[i].direction.assign(
+                L.dot(camera.X),
+                L.dot(camera.Y)
+            ).scale(dot).subtract(SD.scale(L.dot(camera.N)));
+            lines.push(SL[i]);
+        }
 
+        let minX = 0,
+            maxX = 0,
+            rangeX = [];
+        L.assignVector(camera.position).subtract(this.position);
+        for(let y = 0, ys = -camera.middle.Y*camera.sUnit; y < camera.hScalar; y++, ys = (y-camera.middle.Y)*camera.sUnit) {
+            rangeX = [0,...lines.map(v=>
+                v.start.X+v.direction.X*(y-v.start.Y)/v.direction.Y
+            ),camera.wScalar].filter(v=>{
+                v = (v-camera.middle.X)*camera.sUnit;
+                SV.assignVector(camera.X).scale(v).add(camera.sN).add(camera.Y.calc.scale(ys));
+                K.assignVector(this.N).scale(1/SV.dot(this.N));
+                SD.assign(
+                    L.dot(this.X.calc.subtract(K.calc.scale(SV.dot(this.X)))),
+                    L.dot(this.Y.calc.subtract(K.scale(SV.dot(this.Y))))
+                );
+                return SD.X>=-0.001&&SD.X<=this.size.X+0.001 //floating point error skit
+                    && SD.Y>=-0.001&&SD.Y<=this.size.Y+0.001
+                    && K.assignVector(this.X).scale(SD.X).add(this.Y.calc.scale(SD.Y)).add(SO[0]).dot(camera.N) > 0; //punkten ska vara framför skärmen
+            });
+            if(rangeX.length) {
+                minX = Math.min(...rangeX);
+                if(minX<0) minX = 0;
+                maxX = Math.max(...rangeX);
+                if(maxX>camera.wScalar) maxX = camera.wScalar;
+                for(let x = minX|0; x < maxX; x++) {
+                    index = 4*(y*camera.wScalar+x);
+                    camera.imageData[index] = 255;
+                    camera.imageData[index+1] = 255;
+                    camera.imageData[index+2] = 255;
+                    camera.imageData[index+3] = 255;
+                }
+            }
+        }
+
+        for(let i = 0; i < lines.length; i++) {
+            DDA(lines[i].start,lines[i].direction,bigvector2D,(walk)=>{
+                if(walk.X>=0&&walk.X<camera.wScalar && walk.Y>=0&&walk.Y<camera.hScalar) {
+                    index = 4*(walk.Y*camera.wScalar+walk.X);
+                    camera.imageData[index] = 0;
+                    camera.imageData[index+1] = 0;
+                    camera.imageData[index+2] = 255;
+                    camera.imageData[index+3] = 255;
+                }
+            });
+            DDA(lines[i].start,lines[i].direction.calc.scale(-1),bigvector2D,(walk)=>{
+                if(walk.X>=0&&walk.X<camera.wScalar && walk.Y>=0&&walk.Y<camera.hScalar) {
+                    index = 4*(walk.Y*camera.wScalar+walk.X);
+                    camera.imageData[index] = 255;
+                    camera.imageData[index+1] = 0;
+                    camera.imageData[index+2] = 0;
+                    camera.imageData[index+3] = 255;
+                }
+            });
         }
     }
 }
@@ -168,7 +250,7 @@ class depthBuffer {
 
 class Camera {
     maxYrotation=Math.PI*0.5;
-    imageData; depthBuffer; middle; hScalar; wScalar; scene; position; rotation; screenCoordinateScalar; scalarRecip; screenDistance; X; N; Y; light;
+    imageData; depthBuffer; middle; hScalar; wScalar; scene; position; rotation; screenCoordinateScalar; scalarRecip; screenDistance; X; N; Y; sN; light; sxUnit; sUnit;
     constructor(scene=new Scene(),screenDistance=1,light=100,position=Vector.zero(3),rotation=Vector.zero(2)) {
         this.middle = Vector.zero(2);
         this.scene = scene;
@@ -178,6 +260,7 @@ class Camera {
         this.X = Vector.zero(3);
         this.N = Vector.zero(3);
         this.Y = Vector.zero(3);
+        this.sN = Vector.zero(3);
         this.light = light;
         this.depthBuffer = new depthBuffer(0,0);
         this.update();
@@ -192,6 +275,7 @@ class Camera {
         this.X.assign(cz,-sz,0);
         this.N.assign(cx*sz,cx*cz,sx);
         this.Y.assign(sx*sz,sx*cz,-cx);
+        this.sN.assignVector(this.N).scale(this.screenDistance);
     }
     shoot(imageData=new ImageData(0,0)) {
         if(imageData.width!=this.depthBuffer.width||imageData.height!=this.depthBuffer.height)
@@ -199,6 +283,7 @@ class Camera {
         this.middle.assign(imageData.width>>1,imageData.height>>1);
         this.hScalar = imageData.height;
         this.wScalar = imageData.width;
+        this.sUnit = 1/this.hScalar;
         this.screenCoordinateScalar = this.hScalar*this.screenDistance;
         this.scalarRecip = 1/this.hScalar;
         this.imageData = imageData.data;
