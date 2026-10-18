@@ -5,7 +5,7 @@ const info = document.getElementById("info");
 
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
-canvas.height = 500;
+canvas.height = window.innerHeight;
 var propX = window.innerWidth / window.innerHeight;
 canvas.width = Math.round(canvas.height * propX);
 let imageData = ctx.createImageData(canvas.width,canvas.height);
@@ -16,7 +16,7 @@ window.addEventListener("resize",(e) => {
 });
 let scene = new Scene();
 
-let camera = new Camera(scene,1,Infinity);
+let camera = new Camera(scene,1,5);
 
 let time = performance.now();
 let deltaTime = 0;

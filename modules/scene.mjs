@@ -121,12 +121,12 @@ class Surface {
     }
     draw(camera) {
         SO[0].assignVector(this.corners[0]).subtract(camera.position);
+        SON[0]=camera.N.dot(SO[0])
         SO[1].assignVector(this.corners[1]).subtract(camera.position);
-        SO[2].assignVector(this.corners[2]).subtract(camera.position);
-        SO[3].assignVector(this.corners[3]).subtract(camera.position);
-        SON[0]=camera.N.dot(SO[0]);
         SON[1]=camera.N.dot(SO[1]);
+        SO[2].assignVector(this.corners[2]).subtract(camera.position);
         SON[2]=camera.N.dot(SO[2]);
+        SO[3].assignVector(this.corners[3]).subtract(camera.position);
         SON[3]=camera.N.dot(SO[3]);
         let lines = [];
         for(let i = 0, n = 1, start,end,dot; i < 4; i++, n = (i+1)%4) {
@@ -154,9 +154,11 @@ class Surface {
 
         let minX = 0,
             maxX = 0,
-            rangeX = [];
+            rangeX = [],
+            v = 0,
+            distance = 0;
         L.assignVector(camera.position).subtract(this.position);
-        for(let y = 0, ys = -camera.middle.Y*camera.sUnit; y < camera.hScalar; y++, ys = (y-camera.middle.Y)*camera.sUnit) {
+        for(let y = 0, ys = camera.yStart; y < camera.hScalar; y++, ys += camera.sUnit) {
             rangeX = [0,...lines.map(v=>
                 v.start.X+v.direction.X*(y-v.start.Y)/v.direction.Y
             ),camera.wScalar].filter(v=>{
@@ -177,16 +179,28 @@ class Surface {
                 maxX = Math.max(...rangeX);
                 if(maxX>camera.wScalar) maxX = camera.wScalar;
                 for(let x = minX|0; x < maxX; x++) {
-                    index = 4*(y*camera.wScalar+x);
-                    camera.imageData[index] = 255;
-                    camera.imageData[index+1] = 255;
-                    camera.imageData[index+2] = 255;
-                    camera.imageData[index+3] = 255;
+                    v = (x-camera.middle.X)*camera.sUnit;
+                    SV.assignVector(camera.X).scale(v).add(camera.sN).add(camera.Y.calc.scale(ys));
+                    K.assignVector(this.N).scale(1/SV.dot(this.N));
+                    SD.assign(
+                        L.dot(this.X.calc.subtract(K.calc.scale(SV.dot(this.X)))),
+                        L.dot(this.Y.calc.subtract(K.scale(SV.dot(this.Y))))
+                    );
+                    distance = K.assignVector(this.X).scale(SD.X).add(this.Y.calc.scale(SD.Y)).add(SO[0]).selfDot;
+                    index = y*camera.wScalar+x;
+                    if(distance<camera.depthBuffer.data[index]) {
+                        camera.depthBuffer.data[index] = distance;
+                        index *= 4;
+                        camera.imageData[index] = 255;
+                        camera.imageData[index+1] = 255;
+                        camera.imageData[index+2] = 255;
+                        camera.imageData[index+3] = Math.floor(255*camera.light/Math.sqrt(distance));
+                    }
                 }
             }
         }
 
-        for(let i = 0; i < lines.length; i++) {
+        /*for(let i = 0; i < lines.length; i++) {
             DDA(lines[i].start,lines[i].direction,bigvector2D,(walk)=>{
                 if(walk.X>=0&&walk.X<camera.wScalar && walk.Y>=0&&walk.Y<camera.hScalar) {
                     index = 4*(walk.Y*camera.wScalar+walk.X);
@@ -205,7 +219,7 @@ class Surface {
                     camera.imageData[index+3] = 255;
                 }
             });
-        }
+        }*/
     }
 }
 
@@ -250,7 +264,7 @@ class depthBuffer {
 
 class Camera {
     maxYrotation=Math.PI*0.5;
-    imageData; depthBuffer; middle; hScalar; wScalar; scene; position; rotation; screenCoordinateScalar; scalarRecip; screenDistance; X; N; Y; sN; light; sxUnit; sUnit;
+    imageData; depthBuffer; middle; hScalar; wScalar; scene; position; rotation; screenCoordinateScalar; scalarRecip; screenDistance; X; N; Y; sN; light; yStart; sUnit;
     constructor(scene=new Scene(),screenDistance=1,light=100,position=Vector.zero(3),rotation=Vector.zero(2)) {
         this.middle = Vector.zero(2);
         this.scene = scene;
@@ -284,6 +298,7 @@ class Camera {
         this.hScalar = imageData.height;
         this.wScalar = imageData.width;
         this.sUnit = 1/this.hScalar;
+        this.yStart = -this.middle.Y*this.sUnit;
         this.screenCoordinateScalar = this.hScalar*this.screenDistance;
         this.scalarRecip = 1/this.hScalar;
         this.imageData = imageData.data;
