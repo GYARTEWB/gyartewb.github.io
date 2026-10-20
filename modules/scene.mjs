@@ -103,7 +103,7 @@ let SO = [Vector.zero(3),Vector.zero(3),Vector.zero(3),Vector.zero(3)], //återa
 
 class Surface {
     position; size; X; N; Y; corners; texture;
-    constructor(position=Vector.zero(3),size=new Vector(1,1),X=new Vector(1,0,0),Y=new Vector(0,0,1),N=new Vector(0,1,0),texture=(x=0,y=0,rgb=[0,0,0])=>rgb.fill(255)) {
+    constructor(position=Vector.zero(3),size=new Vector(1,1),X=new Vector(1,0,0),Y=new Vector(0,0,1),N=new Vector(0,1,0),texture=(x=0,y=0,rgb=[0,0,0])=>coolTexture(x,y,rgb)) {
         this.position = position;
         this.size = size;
         this.X = X;
@@ -223,6 +223,24 @@ class Surface {
     }
 }
 
+var time = 0;
+
+function posMod(x,y) {
+    return (x % y + y) % y
+}
+
+function coolTexture(x,y,rgb) {
+    if(posMod(x+time*0.01+0.01*Math.sin(10*y+time),0.1)<0.01||posMod(y+time*0.01+0.01*Math.cos(10*x+time),0.1)<0.01) {
+        rgb[0] = 255;
+        rgb[1] = 0;
+        rgb[2] = 0;
+    } else {
+        rgb[0] = 255;
+        rgb[1] = 255;
+        rgb[2] = 255;
+    }
+}
+
 class Block {
     position; size; rotation; surfaces; #halfSize;
     constructor(position=Vector.zero(3),size=new Vector(2,4,1),rotation=Vector.zero(3)) {
@@ -230,12 +248,12 @@ class Block {
         this.size = size;
         this.rotation = rotation;
         this.surfaces=[ //bra att OOP abstraktar bort dessa detaljer, OOP abstraktar bort detaljer även här!
-            new Surface(new Vector(-0.5*this.size.X,-0.5*this.size.Y,0.5*this.size.Z).add(this.position),new Vector(this.size.X,this.size.Y),new Vector(1,0,0),new Vector(0,1,0),new Vector(0,0,1),(x,y,rgb)=>{rgb[0]=0;rgb[1]=0;rgb[2]=255}), //0 0 1
-            new Surface(new Vector(-0.5*this.size.X,-0.5*this.size.Y,-0.5*this.size.Z).add(this.position),new Vector(this.size.X,this.size.Y),new Vector(1,0,0),new Vector(0,1,0),new Vector(0,0,-1),(x,y,rgb)=>{rgb[0]=0;rgb[1]=0;rgb[2]=255}), //0 0 -1
-            new Surface(new Vector(-0.5*this.size.X,0.5*this.size.Y,-0.5*this.size.Z).add(this.position),new Vector(this.size.X,this.size.Z),new Vector(1,0,0),new Vector(0,0,1),new Vector(0,1,0),(x,y,rgb)=>{rgb[0]=0;rgb[1]=255;rgb[2]=0}), //0 1 0
-            new Surface(new Vector(-0.5*this.size.X,-0.5*this.size.Y,-0.5*this.size.Z).add(this.position),new Vector(this.size.X,this.size.Z),new Vector(1,0,0),new Vector(0,0,1),new Vector(0,-1,0),(x,y,rgb)=>{rgb[0]=0;rgb[1]=255;rgb[2]=0}), //0 -1 0
-            new Surface(new Vector(0.5*this.size.X,-0.5*this.size.Y,-0.5*this.size.Z).add(this.position),new Vector(this.size.Y,this.size.Z),new Vector(0,1,0),new Vector(0,0,1),new Vector(1,0,0),(x,y,rgb)=>{rgb[0]=255;rgb[1]=0;rgb[2]=0}), //1 0 0
-            new Surface(new Vector(-0.5*this.size.X,-0.5*this.size.Y,-0.5*this.size.Z).add(this.position),new Vector(this.size.Y,this.size.Z),new Vector(0,1,0),new Vector(0,0,1),new Vector(-1,0,0),(x,y,rgb)=>{rgb[0]=255;rgb[1]=0;rgb[2]=0})  //-1 0 0
+            new Surface(new Vector(-0.5*this.size.X,-0.5*this.size.Y,0.5*this.size.Z).add(this.position),new Vector(this.size.X,this.size.Y),new Vector(1,0,0),new Vector(0,1,0),new Vector(0,0,1),coolTexture), //0 0 1
+            new Surface(new Vector(-0.5*this.size.X,-0.5*this.size.Y,-0.5*this.size.Z).add(this.position),new Vector(this.size.X,this.size.Y),new Vector(1,0,0),new Vector(0,1,0),new Vector(0,0,-1),coolTexture), //0 0 -1
+            new Surface(new Vector(-0.5*this.size.X,0.5*this.size.Y,-0.5*this.size.Z).add(this.position),new Vector(this.size.X,this.size.Z),new Vector(1,0,0),new Vector(0,0,1),new Vector(0,1,0),coolTexture), //0 1 0
+            new Surface(new Vector(-0.5*this.size.X,-0.5*this.size.Y,-0.5*this.size.Z).add(this.position),new Vector(this.size.X,this.size.Z),new Vector(1,0,0),new Vector(0,0,1),new Vector(0,-1,0),coolTexture), //0 -1 0
+            new Surface(new Vector(0.5*this.size.X,-0.5*this.size.Y,-0.5*this.size.Z).add(this.position),new Vector(this.size.Y,this.size.Z),new Vector(0,1,0),new Vector(0,0,1),new Vector(1,0,0),coolTexture), //1 0 0
+            new Surface(new Vector(-0.5*this.size.X,-0.5*this.size.Y,-0.5*this.size.Z).add(this.position),new Vector(this.size.Y,this.size.Z),new Vector(0,1,0),new Vector(0,0,1),new Vector(-1,0,0),coolTexture)  //-1 0 0
         ];
     }
     draw(camera) {
@@ -292,6 +310,7 @@ class Camera {
         this.sN.assignVector(this.N).scale(this.screenDistance);
     }
     shoot(imageData=new ImageData(0,0)) {
+        time = performance.now()*0.01;
         if(imageData.width!=this.depthBuffer.width||imageData.height!=this.depthBuffer.height)
             this.depthBuffer = new depthBuffer(imageData.width,imageData.height);
         this.middle.assign(imageData.width>>1,imageData.height>>1);
