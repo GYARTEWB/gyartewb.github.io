@@ -98,7 +98,8 @@ let SO = [Vector.zero(3),Vector.zero(3),Vector.zero(3),Vector.zero(3)], //återa
     L = Vector.zero(3),
     SV = Vector.zero(3),
     K = Vector.zero(3),
-    index = 0;
+    index = 0,
+    rgb = new Uint8ClampedArray(3);
 
 class Surface {
     position; size; X; N; Y; corners; texture;
@@ -155,7 +156,6 @@ class Surface {
         let minX = 0,
             maxX = 0,
             rangeX = [],
-            v = 0,
             distance = 0;
         L.assignVector(camera.position).subtract(this.position);
         for(let y = 0, ys = camera.yStart; y < camera.hScalar; y++, ys += camera.sUnit) {
@@ -169,8 +169,8 @@ class Surface {
                     L.dot(this.X.calc.subtract(K.calc.scale(SV.dot(this.X)))),
                     L.dot(this.Y.calc.subtract(K.scale(SV.dot(this.Y))))
                 );
-                return SD.X>=-0.001&&SD.X<=this.size.X+0.001 //floating point error skit
-                    && SD.Y>=-0.001&&SD.Y<=this.size.Y+0.001
+                return SD.X>=-0.0000000001&&SD.X<=this.size.X+0.0000000001 //floating point error skit
+                    && SD.Y>=-0.0000000001&&SD.Y<=this.size.Y+0.0000000001
                     && K.assignVector(this.X).scale(SD.X).add(this.Y.calc.scale(SD.Y)).add(SO[0]).dot(camera.N) > 0; //punkten ska vara framför skärmen
             });
             if(rangeX.length) {
@@ -178,9 +178,8 @@ class Surface {
                 if(minX<0) minX = 0;
                 maxX = Math.max(...rangeX);
                 if(maxX>camera.wScalar) maxX = camera.wScalar;
-                for(let x = minX|0; x < maxX; x++) {
-                    v = (x-camera.middle.X)*camera.sUnit;
-                    SV.assignVector(camera.X).scale(v).add(camera.sN).add(camera.Y.calc.scale(ys));
+                for(let x = minX|0, xs = (x-camera.middle.X)*camera.sUnit; x < maxX; x++, xs += camera.sUnit) {
+                    SV.assignVector(camera.X).scale(xs).add(camera.sN).add(camera.Y.calc.scale(ys));
                     K.assignVector(this.N).scale(1/SV.dot(this.N));
                     SD.assign(
                         L.dot(this.X.calc.subtract(K.calc.scale(SV.dot(this.X)))),
@@ -191,9 +190,10 @@ class Surface {
                     if(distance<camera.depthBuffer.data[index]) {
                         camera.depthBuffer.data[index] = distance;
                         index *= 4;
-                        camera.imageData[index] = 255;
-                        camera.imageData[index+1] = 255;
-                        camera.imageData[index+2] = 255;
+                        this.texture(SD.X,SD.Y,rgb)
+                        camera.imageData[index] = rgb[0];
+                        camera.imageData[index+1] = rgb[1];
+                        camera.imageData[index+2] = rgb[2];
                         camera.imageData[index+3] = Math.floor(255*camera.light/Math.sqrt(distance));
                     }
                 }
@@ -224,18 +224,18 @@ class Surface {
 }
 
 class Block {
-    position; size; rotation; surfaces;
+    position; size; rotation; surfaces; #halfSize;
     constructor(position=Vector.zero(3),size=new Vector(2,4,1),rotation=Vector.zero(3)) {
         this.position = position;
         this.size = size;
         this.rotation = rotation;
         this.surfaces=[ //bra att OOP abstraktar bort dessa detaljer, OOP abstraktar bort detaljer även här!
-            new Surface(new Vector(-0.5,-0.5,0.5).scale(this.size.Z).add(this.position),new Vector(this.size.X,this.size.Y),new Vector(1,0,0),new Vector(0,1,0),new Vector(0,0,1)), //0 0 1
-            new Surface(new Vector(-0.5,-0.5,-0.5).scale(this.size.Z).add(this.position),new Vector(this.size.X,this.size.Y),new Vector(1,0,0),new Vector(0,1,0),new Vector(0,0,-1)), //0 0 -1
-            new Surface(new Vector(-0.5,0.5,-0.5).scale(this.size.Y).add(this.position),new Vector(this.size.X,this.size.Z),new Vector(1,0,0),new Vector(0,0,1),new Vector(0,1,0)), //0 1 0
-            new Surface(new Vector(-0.5,-0.5,-0.5).scale(this.size.Y).add(this.position),new Vector(this.size.X,this.size.Z),new Vector(1,0,0),new Vector(0,0,1),new Vector(0,-1,0)), //0 -1 0
-            new Surface(new Vector(0.5,-0.5,-0.5).scale(this.size.X).add(this.position),new Vector(this.size.Y,this.size.Z),new Vector(0,1,0),new Vector(0,0,1),new Vector(1,0,0)), //1 0 0
-            new Surface(new Vector(-0.5,-0.5,-0.5).scale(this.size.X).add(this.position),new Vector(this.size.Y,this.size.Z),new Vector(0,1,0),new Vector(0,0,1),new Vector(-1,0,0))  //-1 0 0
+            new Surface(new Vector(-0.5*this.size.X,-0.5*this.size.Y,0.5*this.size.Z).add(this.position),new Vector(this.size.X,this.size.Y),new Vector(1,0,0),new Vector(0,1,0),new Vector(0,0,1),(x,y,rgb)=>{rgb[0]=0;rgb[1]=0;rgb[2]=255}), //0 0 1
+            new Surface(new Vector(-0.5*this.size.X,-0.5*this.size.Y,-0.5*this.size.Z).add(this.position),new Vector(this.size.X,this.size.Y),new Vector(1,0,0),new Vector(0,1,0),new Vector(0,0,-1),(x,y,rgb)=>{rgb[0]=0;rgb[1]=0;rgb[2]=255}), //0 0 -1
+            new Surface(new Vector(-0.5*this.size.X,0.5*this.size.Y,-0.5*this.size.Z).add(this.position),new Vector(this.size.X,this.size.Z),new Vector(1,0,0),new Vector(0,0,1),new Vector(0,1,0),(x,y,rgb)=>{rgb[0]=0;rgb[1]=255;rgb[2]=0}), //0 1 0
+            new Surface(new Vector(-0.5*this.size.X,-0.5*this.size.Y,-0.5*this.size.Z).add(this.position),new Vector(this.size.X,this.size.Z),new Vector(1,0,0),new Vector(0,0,1),new Vector(0,-1,0),(x,y,rgb)=>{rgb[0]=0;rgb[1]=255;rgb[2]=0}), //0 -1 0
+            new Surface(new Vector(0.5*this.size.X,-0.5*this.size.Y,-0.5*this.size.Z).add(this.position),new Vector(this.size.Y,this.size.Z),new Vector(0,1,0),new Vector(0,0,1),new Vector(1,0,0),(x,y,rgb)=>{rgb[0]=255;rgb[1]=0;rgb[2]=0}), //1 0 0
+            new Surface(new Vector(-0.5*this.size.X,-0.5*this.size.Y,-0.5*this.size.Z).add(this.position),new Vector(this.size.Y,this.size.Z),new Vector(0,1,0),new Vector(0,0,1),new Vector(-1,0,0),(x,y,rgb)=>{rgb[0]=255;rgb[1]=0;rgb[2]=0})  //-1 0 0
         ];
     }
     draw(camera) {
