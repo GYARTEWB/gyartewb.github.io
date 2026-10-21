@@ -104,7 +104,7 @@ let SO = [Vector.zero(3),Vector.zero(3),Vector.zero(3),Vector.zero(3)], //återa
 
 class Surface {
     position; size; X; N; Y; corners; texture;
-    constructor(position=Vector.zero(3),size=new Vector(1,1),X=new Vector(1,0,0),Y=new Vector(0,0,1),N=new Vector(0,1,0),texture=(x=0,y=0,rgb=[0,0,0])=>meatBallTexture(x,y,rgb)) {
+    constructor(position=Vector.zero(3),size=new Vector(1,1),X=new Vector(1,0,0),Y=new Vector(0,0,1),N=new Vector(0,1,0),texture=(xy,rgb=[0,0,0])=>meatBallTexture(xy,rgb)) {
         this.position = position;
         this.size = size;
         this.X = X;
@@ -194,7 +194,7 @@ class Surface {
                     if(distance<camera.depthBuffer.data[index]) {
                         camera.depthBuffer.data[index] = distance;
                         index *= 4;
-                        this.texture(SD.X,SD.Y,rgb)
+                        this.texture(SD,rgb)
                         camera.imageData[index] = rgb[0];
                         camera.imageData[index+1] = rgb[1];
                         camera.imageData[index+2] = rgb[2];
@@ -231,18 +231,6 @@ var time = 0;
 
 function posMod(x,y) {
     return (x % y + y) % y
-}
-
-function coolTexture(x,y,rgb) {
-    if(posMod(x+0.05*Math.sin(10*y+time),0.1)<0.025||posMod(y+0.05*Math.cos(10*x+time),0.1)<0.025) {
-        rgb[0] = 255;
-        rgb[1] = 255;
-        rgb[2] = 0;
-    } else {
-        rgb[0] = 0;
-        rgb[1] = 0;
-        rgb[2] = 255;
-    }
 }
 
 class Block {
@@ -287,15 +275,16 @@ class depthBuffer {
 let canvas = document.getElementById("hiddenCanvas");
 let ctx = canvas.getContext("2d");
 
-function createImageTexture(id) {
+function createImageTexture(id,transform=(xy)=>null) {
     let image = document.getElementById(id);
     canvas.height = image.height;
     canvas.width = image.width;
     ctx.drawImage(image,0,0);
     let imageData = ctx.getImageData(0,0,image.width,image.height);
-    return (x,y,rgb) => {
-        x = (x*imageData.width)%imageData.width;
-        y = (y*imageData.height)%imageData.height;
+    return (xy,rgb) => {
+        transform(xy);
+        let x = posMod((xy.X*imageData.width),imageData.width);
+        let y = posMod((xy.Y*imageData.height),imageData.height);
         let index = 4*((y|0)*imageData.width+(x|0));
         rgb[0] = imageData.data[index];
         rgb[1] = imageData.data[index+1];
@@ -303,9 +292,16 @@ function createImageTexture(id) {
     }
 }
 
-let meatBallTexture = createImageTexture("meatball");
+function funnyTransform(xy) {
+    xy.assign(
+        xy.X+0.25*Math.sin(xy.Y*10+time*0.2),
+        xy.Y+0.25*Math.sin(xy.X*10+time*0.2)
+    );
+}
 
-let droydTexture = createImageTexture("droyd");
+let meatBallTexture = createImageTexture("meatball",funnyTransform);
+
+let droydTexture = createImageTexture("droyd",funnyTransform);
 
 class Camera {
     maxYrotation=Math.PI*0.5;

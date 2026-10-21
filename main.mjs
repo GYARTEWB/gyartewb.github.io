@@ -5,7 +5,7 @@ const info = document.getElementById("info");
 
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
-canvas.height = 100;
+canvas.height = 250;
 var propX = window.innerWidth / window.innerHeight;
 canvas.width = Math.round(canvas.height * propX);
 let imageData = ctx.createImageData(canvas.width,canvas.height);
