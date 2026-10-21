@@ -21,3 +21,8 @@ html{
     margin: 0 0 10px;
     width: max-content;
 }
+
+img,
+#hiddenCanvas {
+    display: none;
+}
