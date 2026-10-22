@@ -294,13 +294,12 @@ function createImageTexture(id,transform=(xy)=>null) {
 
 function funnyTransform(xy) {
     xy.assign(
-        xy.X+0.25*Math.sin(xy.Y*10+time*0.2),
-        xy.Y+0.25*Math.sin(xy.X*10+time*0.2)
+        xy.X+Math.sin(xy.Y*Math.sin(time*0.01)*2+time*0.1),
+        xy.Y+Math.sin(xy.X*Math.sin(time*0.01)*2+time*0.1)
     );
 }
 
 let meatBallTexture = createImageTexture("meatball",funnyTransform);
-
 let droydTexture = createImageTexture("droyd",funnyTransform);
 
 class Camera {

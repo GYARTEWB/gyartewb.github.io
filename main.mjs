@@ -16,13 +16,13 @@ window.addEventListener("resize",(e) => {
 });
 let scene = new Scene();
 
-let camera = new Camera(scene,1,2);
+let camera = new Camera(scene,1,10);
 
 let time = performance.now();
 let deltaTime = 0;
 for(let i = 0; i < 1500; i++)
    scene.elements.add(new Star());
-scene.elements.add(new Block(new Vector(0.45,0.45,0.45),new Vector(1,1,1)));
+scene.elements.add(new Block(Vector.zero(3),new Vector(10,10,10)));
 
 //scene.elements.add(new Surface(new Vector(-2.5,10,-2.5),new Vector(5,5),new Vector(1,0,0),new Vector(0,0,1),new Vector(0,-1,0)));
 
