@@ -83,6 +83,36 @@ function DDA(start,direction,steps,func=(walk)=>null) {
     }
 }
 
+let canvas = document.getElementById("hiddenCanvas");
+let ctx = canvas.getContext("2d");
+
+function createImageTexture(id,transform=(xy)=>null) {
+    let image = document.getElementById(id);
+    canvas.height = image.height;
+    canvas.width = image.width;
+    ctx.drawImage(image,0,0);
+    let imageData = ctx.getImageData(0,0,image.width,image.height);
+    return (xy,rgb) => {
+        transform(xy);
+        let x = posMod((xy.X*imageData.width),imageData.width);
+        let y = posMod((xy.Y*imageData.height),imageData.height);
+        let index = 4*((y|0)*imageData.width+(x|0));
+        rgb[0] = imageData.data[index];
+        rgb[1] = imageData.data[index+1];
+        rgb[2] = imageData.data[index+2];
+    }
+}
+
+function funnyTransform(xy) {
+    xy.assign(
+        xy.X+Math.sin(xy.Y*Math.sin(time*0.01)*2+time*0.1),
+        xy.Y+Math.cos(xy.X*Math.sin(time*0.01)*2+time*0.1)
+    );
+}
+
+let meatBallTexture = createImageTexture("meatball",funnyTransform);
+let droydTexture = createImageTexture("droyd",funnyTransform);
+
 class line2D {
     start;end;
     constructor(start=Vector.zero(2),direction=Vector.zero(2)) {
@@ -101,7 +131,7 @@ let SO = [Vector.zero(3),Vector.zero(3),Vector.zero(3),Vector.zero(3)], //återa
     index = 0,
     rgb = new Uint8ClampedArray(3),
     factorise1 = Vector.zero(3);
-
+    
 class Surface {
     position; size; X; N; Y; corners; texture;
     constructor(position=Vector.zero(3),size=new Vector(1,1),X=new Vector(1,0,0),Y=new Vector(0,0,1),N=new Vector(0,1,0),texture=(xy,rgb=[0,0,0])=>meatBallTexture(xy,rgb)) {
@@ -249,7 +279,12 @@ class Block {
         ];
     }
     draw(camera) {
-        for(let i = 0; i < this.surfaces.length; this.surfaces[i++].draw(camera));
+        this.surfaces[0].draw(camera);
+        this.surfaces[1].draw(camera);
+        this.surfaces[2].draw(camera);
+        this.surfaces[3].draw(camera);
+        this.surfaces[4].draw(camera);
+        this.surfaces[5].draw(camera);
     }
 }
 
@@ -271,36 +306,6 @@ class depthBuffer {
         this.data.fill(Infinity);
     }
 }
-
-let canvas = document.getElementById("hiddenCanvas");
-let ctx = canvas.getContext("2d");
-
-function createImageTexture(id,transform=(xy)=>null) {
-    let image = document.getElementById(id);
-    canvas.height = image.height;
-    canvas.width = image.width;
-    ctx.drawImage(image,0,0);
-    let imageData = ctx.getImageData(0,0,image.width,image.height);
-    return (xy,rgb) => {
-        transform(xy);
-        let x = posMod((xy.X*imageData.width),imageData.width);
-        let y = posMod((xy.Y*imageData.height),imageData.height);
-        let index = 4*((y|0)*imageData.width+(x|0));
-        rgb[0] = imageData.data[index];
-        rgb[1] = imageData.data[index+1];
-        rgb[2] = imageData.data[index+2];
-    }
-}
-
-function funnyTransform(xy) {
-    xy.assign(
-        xy.X+Math.sin(xy.Y*Math.sin(time*0.01)*2+time*0.1),
-        xy.Y+Math.sin(xy.X*Math.sin(time*0.01)*2+time*0.1)
-    );
-}
-
-let meatBallTexture = createImageTexture("meatball",funnyTransform);
-let droydTexture = createImageTexture("droyd",funnyTransform);
 
 class Camera {
     maxYrotation=Math.PI*0.5;
