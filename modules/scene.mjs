@@ -88,15 +88,17 @@ let ctx = canvas.getContext("2d");
 
 function createImageTexture(id,transform=(xy)=>null) {
     let image = document.getElementById(id);
-    canvas.height = image.height;
-    canvas.width = image.width;
+    let width = image.width;
+    let height = image.height;
+    canvas.height = width;
+    canvas.width = height;
     ctx.drawImage(image,0,0);
-    let imageData = ctx.getImageData(0,0,image.width,image.height);
+    let imageData = ctx.getImageData(0,0,width,height);
     return (xy,rgb) => {
         transform(xy);
-        let x = posMod((xy.X*imageData.width),imageData.width);
-        let y = posMod((xy.Y*imageData.height),imageData.height);
-        let index = 4*((y|0)*imageData.width+(x|0));
+        let x = (width * xy.X % width + width) % width;
+        let y = (height * xy.Y % height + height) % height;
+        let index = 4*((y|0)*width+(x|0));
         rgb[0] = imageData.data[index];
         rgb[1] = imageData.data[index+1];
         rgb[2] = imageData.data[index+2];
@@ -110,8 +112,24 @@ function funnyTransform(xy) {
     );
 }
 
-let meatBallTexture = createImageTexture("meatball",funnyTransform);
+let meatBallTexture = createImageTexture("meatball");
 let droydTexture = createImageTexture("droyd",funnyTransform);
+function whiteTexture(xy,rgb) {
+    rgb[0] = 255;
+    rgb[1] = 255;
+    rgb[2] = 255;
+}
+
+function infiniteTexture(xy,rgb) {
+    let width = previousImage.width;
+    let height = previousImage.height;
+    let x = (width * xy.X % width + width) % width;
+    let y = (height * xy.Y % height + height) % height;
+    let index = 4*((y|0)*width+(x|0));
+    rgb[0] = previousImage.data[index];
+    rgb[1] = previousImage.data[index+1];
+    rgb[2] = previousImage.data[index+2];
+}
 
 class line2D {
     start;end;
@@ -128,13 +146,13 @@ let SO = [Vector.zero(3),Vector.zero(3),Vector.zero(3),Vector.zero(3)], //återa
     L = Vector.zero(3),
     SV = Vector.zero(3),
     K = Vector.zero(3),
+    factorise1 = Vector.zero(3),
     index = 0,
-    rgb = new Uint8ClampedArray(3),
-    factorise1 = Vector.zero(3);
+    rgb = new Uint8ClampedArray(3);
     
 class Surface {
     position; size; X; N; Y; corners; texture;
-    constructor(position=Vector.zero(3),size=new Vector(1,1),X=new Vector(1,0,0),Y=new Vector(0,0,1),N=new Vector(0,1,0),texture=(xy,rgb=[0,0,0])=>meatBallTexture(xy,rgb)) {
+    constructor(position=Vector.zero(3),size=new Vector(1,1),X=new Vector(1,0,0),Y=new Vector(0,0,1),N=new Vector(0,1,0),texture=infiniteTexture) {
         this.position = position;
         this.size = size;
         this.X = X;
@@ -184,26 +202,30 @@ class Surface {
             lines.push(SL[i]);
         }
 
+        L.assignVector(camera.position).subtract(this.position);
+        K.assign(
+            L.dot(this.X),
+            L.dot(this.Y)
+        );
         let minX = 0,
             maxX = 0,
             rangeX = [],
             distance = 0,
-            yf = 0;
-        L.assignVector(camera.position).subtract(this.position);
+            yf = 0,
+            ay = L.dot(this.N);
         for(let y = 0, ys = camera.yStart; y < camera.hScalar; y++, ys += camera.sUnit) {
             rangeX = [0,...lines.map(v=>
                 v.start.X+v.direction.X*(y-v.start.Y)/v.direction.Y
             ),camera.wScalar].filter(v=>{
                 v = (v-camera.middle.X)*camera.sUnit;
                 SV.assignVector(camera.X).scale(v).add(camera.sN).add(camera.Y.calc.scale(ys));
-                K.assignVector(this.N).scale(1/SV.dot(this.N));
                 SD.assign(
-                    L.dot(this.X.calc.subtract(K.calc.scale(SV.dot(this.X)))),
-                    L.dot(this.Y.calc.subtract(K.scale(SV.dot(this.Y))))
-                );
+                    SV.dot(this.X),
+                    SV.dot(this.Y)
+                ).scale(-ay/SV.dot(this.N)).add(K)
                 return SD.X>=-0.0000000001&&SD.X<=this.size.X+0.0000000001 //floating point error skit
                     && SD.Y>=-0.0000000001&&SD.Y<=this.size.Y+0.0000000001
-                    && K.assignVector(this.X).scale(SD.X).add(this.Y.calc.scale(SD.Y)).add(SO[0]).dot(camera.N) > 0; //punkten ska vara framför skärmen
+                    && SV.assignVector(this.X).scale(SD.X).add(this.Y.calc.scale(SD.Y)).add(SO[0]).dot(camera.N) > 0; //punkten ska vara framför skärmen
             });
             if(rangeX.length) {
                 minX = Math.min(...rangeX);
@@ -214,12 +236,11 @@ class Surface {
                 yf = y*camera.wScalar;
                 for(let x = minX|0, xs = (x-camera.middle.X)*camera.sUnit; x < maxX; x++, xs += camera.sUnit) {
                     SV.assignVector(camera.X).scale(xs).add(factorise1);
-                    K.assignVector(this.N).scale(1/SV.dot(this.N));
                     SD.assign(
-                        L.dot(this.X.calc.subtract(K.calc.scale(SV.dot(this.X)))),
-                        L.dot(this.Y.calc.subtract(K.scale(SV.dot(this.Y))))
-                    );
-                    distance = K.assignVector(this.X).scale(SD.X).add(this.Y.calc.scale(SD.Y)).add(SO[0]).selfDot;
+                        SV.dot(this.X),
+                        SV.dot(this.Y)
+                    ).scale(-ay/SV.dot(this.N)).add(K)
+                    distance = SV.assignVector(this.X).scale(SD.X).add(this.Y.calc.scale(SD.Y)).add(SO[0]).selfDot;
                     index = yf+x;
                     if(distance<camera.depthBuffer.data[index]) {
                         camera.depthBuffer.data[index] = distance;
@@ -259,10 +280,6 @@ class Surface {
 
 var time = 0;
 
-function posMod(x,y) {
-    return (x % y + y) % y
-}
-
 class Block {
     position; size; rotation; surfaces; #halfSize;
     constructor(position=Vector.zero(3),size=new Vector(2,4,1),rotation=Vector.zero(3)) {
@@ -270,12 +287,12 @@ class Block {
         this.size = size;
         this.rotation = rotation;
         this.surfaces=[ //bra att OOP abstraktar bort dessa detaljer, OOP abstraktar bort detaljer även här!
-            new Surface(new Vector(-0.5*this.size.X,-0.5*this.size.Y,0.5*this.size.Z).add(this.position),new Vector(this.size.X,this.size.Y),new Vector(1,0,0),new Vector(0,1,0),new Vector(0,0,1),droydTexture), //0 0 1
-            new Surface(new Vector(-0.5*this.size.X,-0.5*this.size.Y,-0.5*this.size.Z).add(this.position),new Vector(this.size.X,this.size.Y),new Vector(1,0,0),new Vector(0,1,0),new Vector(0,0,-1),droydTexture), //0 0 -1
-            new Surface(new Vector(-0.5*this.size.X,0.5*this.size.Y,-0.5*this.size.Z).add(this.position),new Vector(this.size.X,this.size.Z),new Vector(1,0,0),new Vector(0,0,1),new Vector(0,1,0),meatBallTexture), //0 1 0
-            new Surface(new Vector(-0.5*this.size.X,-0.5*this.size.Y,-0.5*this.size.Z).add(this.position),new Vector(this.size.X,this.size.Z),new Vector(1,0,0),new Vector(0,0,1),new Vector(0,-1,0),meatBallTexture), //0 -1 0
-            new Surface(new Vector(0.5*this.size.X,-0.5*this.size.Y,-0.5*this.size.Z).add(this.position),new Vector(this.size.Y,this.size.Z),new Vector(0,1,0),new Vector(0,0,1),new Vector(1,0,0),meatBallTexture), //1 0 0
-            new Surface(new Vector(-0.5*this.size.X,-0.5*this.size.Y,-0.5*this.size.Z).add(this.position),new Vector(this.size.Y,this.size.Z),new Vector(0,1,0),new Vector(0,0,1),new Vector(-1,0,0),meatBallTexture)  //-1 0 0
+            new Surface(new Vector(-0.5*this.size.X,0.5*this.size.Y,0.5*this.size.Z).add(this.position),new Vector(this.size.X,this.size.Y),new Vector(1,0,0),new Vector(0,-1,0),new Vector(0,0,1),infiniteTexture), //0 0 1
+            new Surface(new Vector(-0.5*this.size.X,0.5*this.size.Y,-0.5*this.size.Z).add(this.position),new Vector(this.size.X,this.size.Y),new Vector(1,0,0),new Vector(0,-1,0),new Vector(0,0,-1),meatBallTexture), //0 0 -1
+            new Surface(new Vector(-0.5*this.size.X,0.5*this.size.Y,0.5*this.size.Z).add(this.position),new Vector(this.size.X,this.size.Z),new Vector(1,0,0),new Vector(0,0,-1),new Vector(0,1,0),droydTexture), //0 1 0
+            new Surface(new Vector(-0.5*this.size.X,-0.5*this.size.Y,0.5*this.size.Z).add(this.position),new Vector(this.size.X,this.size.Z),new Vector(1,0,0),new Vector(0,0,-1),new Vector(0,-1,0),droydTexture), //0 -1 0
+            new Surface(new Vector(0.5*this.size.X,-0.5*this.size.Y,0.5*this.size.Z).add(this.position),new Vector(this.size.Y,this.size.Z),new Vector(0,1,0),new Vector(0,0,-1),new Vector(1,0,0),droydTexture), //1 0 0
+            new Surface(new Vector(-0.5*this.size.X,-0.5*this.size.Y,0.5*this.size.Z).add(this.position),new Vector(this.size.Y,this.size.Z),new Vector(0,1,0),new Vector(0,0,-1),new Vector(-1,0,0),droydTexture)  //-1 0 0
         ];
     }
     draw(camera) {
@@ -306,6 +323,8 @@ class depthBuffer {
         this.data.fill(Infinity);
     }
 }
+
+let previousImage = new ImageData(1,1);
 
 class Camera {
     maxYrotation=Math.PI*0.5;
@@ -350,5 +369,6 @@ class Camera {
         this.imageData = imageData.data;
         this.scene.elements.forEach(element=>element.draw(this));
         this.depthBuffer.reset();
+        previousImage = new ImageData(new Uint8ClampedArray(imageData.data),imageData.width,imageData.height);
     }
 }

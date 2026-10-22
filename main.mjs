@@ -22,9 +22,9 @@ let time = performance.now();
 let deltaTime = 0;
 for(let i = 0; i < 1500; i++)
    scene.elements.add(new Star());
-scene.elements.add(new Block(Vector.zero(3),new Vector(10,10,10)));
+scene.elements.add(new Block(new Vector(0,0,2),new Vector(5,5,5)));
 
-//scene.elements.add(new Surface(new Vector(-2.5,10,-2.5),new Vector(5,5),new Vector(1,0,0),new Vector(0,0,1),new Vector(0,-1,0)));
+scene.elements.add(new Surface(new Vector(-0.5,1,0.5),new Vector(1,1),new Vector(1,0,0),new Vector(0,0,-1),new Vector(0,-1,0)));
 
 let rotationSpeed = new Vector(0,0);
 let speed = new Vector(0,0,0);
