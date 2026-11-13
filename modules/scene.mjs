@@ -14,7 +14,7 @@ class Star {
     draw(camera) {
         ON = this.position.dot(camera.N);
         if(ON>0) {
-            camera.matrix.transform(this.position,screenCoordinate).scale(camera.screenCoordinateScalar/ON).add(camera.middle);
+            camera.matrix.transformVector(this.position,screenCoordinate).scale(camera.screenCoordinateScalar/ON).add(camera.middle);
             if(screenCoordinate.X>=0&&screenCoordinate.X<camera.wScalar && screenCoordinate.Y>=0&&screenCoordinate.Y<camera.hScalar) {
                 let index = camera.wScalar*(screenCoordinate.Y|0)+(screenCoordinate.X|0);
                 if(!isFinite(camera.depthBuffer.data[index])) {
@@ -40,7 +40,7 @@ class Dot {
     draw(camera) {
         ON = O.assignVector(this.position).subtract(camera.position).dot(camera.N);
         if(ON>0) {            
-            camera.matrix.transform(O,screenCoordinate).scale(camera.screenCoordinateScalar/ON).add(camera.middle);
+            camera.matrix.transformVector(O,screenCoordinate).scale(camera.screenCoordinateScalar/ON).add(camera.middle);
             if(screenCoordinate.X>=0&&screenCoordinate.X<camera.wScalar && screenCoordinate.Y>=0&&screenCoordinate.Y<camera.hScalar) {
                 let index = camera.wScalar*(screenCoordinate.Y|0)+(screenCoordinate.X|0);
                 let distance = O.selfDot;
@@ -166,15 +166,15 @@ class Surface {
                 end = SO[i];
                 dot = SON[n];
             } else continue //varken n eller i framför skärmen, ingen linje kan visas mellan de 2 punkterna på skärmen då
-            camera.matrix.transform(start,SD)
+            camera.matrix.transformVector(start,SD)
             L.assignVector(end).subtract(start);
             SL[i].start.assignVector(SD).scale(camera.screenCoordinateScalar/dot).add(camera.middle);
-            camera.matrix.transform(L,SL[i].direction).scale(dot).subtract(SD.scale(L.dot(camera.N)));
+            camera.matrix.transformVector(L,SL[i].direction).scale(dot).subtract(SD.scale(L.dot(camera.N)));
             lines.push(SL[i]);
         }
 
         L.assignVector(camera.position).subtract(this.position);
-        this.matrix.transform(L,K);
+        this.matrix.transformVector(L,K);
         let minX = 0,
             maxX = 0,
             rangeX = [],
@@ -187,7 +187,7 @@ class Surface {
             ),camera.wScalar].filter(v=>{
                 v = (v-camera.middle.X)*camera.sUnit;
                 SV.assignVector(camera.X).scale(v).add(camera.sN).add(camera.Y.calc.scale(ys));
-                this.matrix.transform(SV,SD).scale(-ay/SV.dot(this.N)).add(K)
+                this.matrix.transformVector(SV,SD).scale(-ay/SV.dot(this.N)).add(K)
                 return SD.X>=-0.0000000001&&SD.X<=this.size.X+0.0000000001 //floating point error skit
                     && SD.Y>=-0.0000000001&&SD.Y<=this.size.Y+0.0000000001
                     && SV.assignVector(this.X).scale(SD.X).add(this.Y.calc.scale(SD.Y)).add(SO[0]).dot(camera.N) > 0; //punkten ska vara framför skärmen
@@ -201,7 +201,7 @@ class Surface {
                 yf = y*camera.wScalar;
                 for(let x = minX|0, xs = (x-camera.middle.X)*camera.sUnit; x < maxX; x++, xs += camera.sUnit) {
                     SV.assignVector(camera.X).scale(xs).add(factorise1);
-                    this.matrix.transform(SV,SD).scale(-ay/SV.dot(this.N)).add(K)
+                    this.matrix.transformVector(SV,SD).scale(-ay/SV.dot(this.N)).add(K)
                     distance = SV.assignVector(this.X).scale(SD.X).add(this.Y.calc.scale(SD.Y)).add(SO[0]).selfDot;
                     index = yf+x;
                     if(distance<camera.depthBuffer.data[index]) {
