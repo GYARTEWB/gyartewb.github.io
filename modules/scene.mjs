@@ -77,11 +77,19 @@ function DDA(start,direction,steps,func=(walk)=>null) {
     }
 }
 
+function funnyTransform(xy) {
+    xy.assign(
+        xy.X+0.25*Math.sin(xy.Y*10+time*0.2)+0.25,
+        xy.Y+0.25*Math.sin(xy.X*10+time*0.2)+0.25
+    );
+}
+
+
 let canvas = document.getElementById("hiddenCanvas");
 let ctx = canvas.getContext("2d");
 
 let tx=0,ty=0,tindex=0;
-function createImageTexture(id) {
+function createImageTexture(id,transform=(xy)=>null) {
     let image = document.getElementById(id);
     let width = image.width;
     let height = image.height;
@@ -90,6 +98,7 @@ function createImageTexture(id) {
     ctx.drawImage(image,0,0);
     let data = ctx.getImageData(0,0,width,height).data;
     return (xy,rgb) => {
+        transform(xy);
         tx = (xy.X-(xy.X|0))*width|0;
         ty = (xy.Y-(xy.Y|0))*height|0;
         tindex = 4*(ty*width+tx);
@@ -100,7 +109,7 @@ function createImageTexture(id) {
 }
 
 let meatBallTexture = createImageTexture("meatball");
-let droydTexture = createImageTexture("droyd");
+let droydTexture = createImageTexture("droyd",funnyTransform);
 function whiteTexture(xy,rgb) {
     rgb[0] = 255;
     rgb[1] = 255;

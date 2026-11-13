@@ -182,7 +182,7 @@ class Vector {
 }
 
 class SelfBuilder {
-    constructor(builder=(THIS,property)=>{}) {
+    constructor(builder=(THIS,property)=>null) {
         this.__proto__ = new Proxy(this,{
             get:builder,
             set(target,property,value){return (Object.defineProperty(target,property,{value:value}),true)}
